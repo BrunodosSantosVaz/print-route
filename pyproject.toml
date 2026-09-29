@@ -18,7 +18,7 @@ license = "AGPL-3.0-or-later"
 license-files = ["LICENSE"]
 authors = [{ name = "Bruno dos Santos Vaz" }]
 requires-python = ">=3.10"
-dependencies = []
+dependencies = ["pywin32; sys_platform == 'win32'"]
 dynamic = ["version"]
 keywords = ["impressora", "printer", "printer-driver", "print-router", "windows"]
 classifiers = [

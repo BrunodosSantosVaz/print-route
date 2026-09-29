@@ -23,20 +23,28 @@ seção "Riscos e dependências". Resumo: **sem port monitor nativo, sem RedMon*
 lista suporte a Windows 10 como "won't be implemented"). Em vez disso, o mesmo princípio do
 [PrintManager](https://github.com/jtquisenberry/PrintManager) (AGPL-3.0), mas 100% em Python:
 
-1. **Captura**: `win32print.FindFirstPrinterChangeNotification` / `FindNextPrinterChangeNotification`
-   (`pywin32`) — API padrão do spooler, sem DLL customizada. (O protótipo mínimo da tarefa #4, em
-   `poc/`, usa uma técnica ainda mais simples — uma Porta Local apontando para um arquivo — só para
-   provar que os bytes chegam até o Python; a captura definitiva das tarefas 2/3 deve usar
-   `FindFirstPrinterChangeNotification`, não ficar checando arquivo.)
+1. **Captura**: observar a pasta de spool do próprio Windows
+   (`C:\Windows\System32\spool\PRINTERS`), esperando um `.SPL` novo parar de crescer — mesma
+   heurística do protótipo da tarefa #4 (`poc/`), aplicada na pasta de verdade em vez de uma porta
+   própria. **Correção (tarefa #6, 29/09/2026)**: a ideia original desta seção era usar
+   `win32print.FindFirstPrinterChangeNotification`, mas o **pywin32 não expõe essa função**
+   (confirmado no código-fonte de `win32print.cpp` no GitHub — só há `OpenPrinter`, `EnumJobs`,
+   `GetJob`, `StartDocPrinter`, `WritePrinter` etc.). Reescrever via `ctypes` chamando a DLL nativa
+   diretamente é possível (assinaturas conferidas na documentação da Microsoft), mas foi descartado
+   por enquanto: observar a pasta já funciona, é mais simples e reaproveita uma técnica já validada.
+   Se isso se mostrar frágil na prática (perder trabalhos concorrentes, por exemplo), reconsidere o
+   `ctypes`.
 2. **Conversão**: **Ghostscript** (AGPL, binário embutido no instalador) rasteriza/converte o trabalho
-   capturado.
-3. **Reenvio**: cada impressora de destino recebe o trabalho pelo **driver dela própria** (via
-   `win32print`/GDI), não por um pass-through cego de bytes — evita incompatibilidade entre impressoras
-   de marcas/linguagens diferentes.
+   capturado — **ainda não implementado** (tarefa #6 encaminha os bytes brutos, sem conversão; só
+   funciona bem quando origem e destino aceitam o mesmo formato, ex.: texto simples). Vira necessário
+   de verdade quando a impressora de destino tiver um driver diferente do de origem.
+3. **Reenvio**: por enquanto, os bytes brutos vão direto para a impressora de destino via
+   `win32print.WritePrinter` (RAW). O ideal (cada impressora recebendo pelo **driver dela própria**,
+   via GDI) fica para quando o Ghostscript entrar.
 
-Antes de implementar as tarefas 2 e 3 do épico #3 com essa arquitetura, confirme que o protótipo da
-tarefa #4 (`poc/`) foi validado pelo dono num Windows de verdade — quem escreve este código não tem
-acesso a uma máquina Windows neste ambiente.
+O protótipo da tarefa #4 (`poc/`) foi validado pelo dono num Windows de verdade. A tarefa #6
+(`spooler/encaminhar.py`) só foi validada pela CI (Windows real, mas sem um humano conferindo a
+impressão de verdade) — quem escreve este código não tem acesso a uma máquina Windows neste ambiente.
 
 ## `pyproject.toml` é a referência
 
@@ -46,12 +54,11 @@ Consulte **sempre** o `pyproject.toml` antes de assumir qualquer coisa sobre o p
 - **Versão**: o `pyproject.toml` a lê do `src/printroute/version.py`. Nunca escreva a versão em outro
   lugar, e nunca a altere à mão: é a esteira que sobe a versão ao integrar uma release.
 - **Estilo e qualidade**: a configuração do Ruff (`[tool.ruff]`). Rode `uvx ruff check .` no que você mexer.
-- **Dependências**: hoje o programa não tem dependências de execução (`dependencies = []`) —
-  `spooler/gerenciar.py` usa só cmdlets do PowerShell via `subprocess`. `pywin32` vai entrar quando
-  a captura de verdade (`FindFirstPrinterChangeNotification`) chegar em `src/`. CI já roda
-  `pip install -e .` antes dos testes nos jobs `check`/`compat` (windows-latest), pronta para quando
-  isso acontecer. A dependência de build (o PyInstaller) fica **só** no `requirements-build.txt`.
-  Não a duplique no `pyproject.toml`.
+- **Dependências**: `pywin32` (só Windows, `sys_platform == 'win32'`), usado em
+  `spooler/encaminhar.py` (`win32print`: `OpenPrinter`, `StartDocPrinter`, `WritePrinter` etc.).
+  `spooler/gerenciar.py` continua só com cmdlets do PowerShell via `subprocess`, sem pywin32. CI roda
+  `pip install -e .` antes dos testes nos jobs `check`/`compat` (windows-latest). A dependência de
+  build (o PyInstaller) fica **só** no `requirements-build.txt`. Não a duplique no `pyproject.toml`.
 - Se precisar de uma configuração nova de ferramenta, ela vai no `pyproject.toml`, e não em arquivos soltos.
 
 ## Comandos
@@ -72,7 +79,7 @@ A saída do compilador vai para `build-local/`, que é ignorada pelo Git. Apague
 | Pasta | Conteúdo |
 |---|---|
 | `src/printroute/` | O programa (pacote). Mexer aqui **muda o executável** e exige uma versão nova. |
-| `src/printroute/spooler/` | Instala/remove a impressora PrintRoute no Windows (porta NUL:, já embutida), via cmdlets do PowerShell. Testes só rodam no Windows (`check`/`compat` na CI). |
+| `src/printroute/spooler/` | Interação com o spooler: `gerenciar.py` (instala/remove a impressora, via PowerShell), `encaminhar.py` (captura pela pasta de spool + reenvio bruto, via `pywin32`). Testes só rodam no Windows (`check`/`compat` na CI). |
 | `tests/` | Testes (`unittest`), inclusive dos scripts da esteira. |
 | `packaging/windows/` | Compilador do `.exe`. |
 | `scripts/processo/` | Configuração do GitHub (labels, painéis, automações). |
