@@ -60,6 +60,22 @@ class CapturarEEncaminhar(unittest.TestCase):
         thread.join(timeout=5)
         if erro_na_thread:
             raise erro_na_thread[0]
+        if capturado is None:
+            # Diagnóstico: o que realmente aconteceu no spooler, para não continuar
+            # adivinhando às cegas numa próxima rodada de CI.
+            hprinter = win32print.OpenPrinter(gerenciar.NOME_IMPRESSORA)
+            try:
+                trabalhos = win32print.EnumJobs(hprinter, 0, 999)
+            finally:
+                win32print.ClosePrinter(hprinter)
+            try:
+                arquivos = sorted(p.name for p in encaminhar.PASTA_SPOOL.iterdir())
+            except OSError as erro:
+                arquivos = f"<erro ao listar {encaminhar.PASTA_SPOOL}: {erro}>"
+            self.fail(
+                f"aguardar_trabalho devolveu None. Trabalhos na fila da PrintRoute: {trabalhos!r}. "
+                f"Arquivos em {encaminhar.PASTA_SPOOL}: {arquivos!r}."
+            )
         self.assertEqual(capturado, dados)
 
     def test_aguardar_trabalho_sem_nada_devolve_none(self):
