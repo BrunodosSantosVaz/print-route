@@ -48,6 +48,21 @@ def _arquivos_spl() -> set[pathlib.Path]:
         return set()
 
 
+def _estado_dos_arquivos() -> dict[pathlib.Path, tuple[float, int]]:
+    # (mtime, tamanho) de cada arquivo candidato -- não só "quais existem". Achado na
+    # CI: com o driver "Microsoft Print To PDF", o Windows reaproveita o MESMO nome de
+    # arquivo ("FP00000.SPL") para cada trabalho, em vez de um nome novo por trabalho;
+    # só olhar "apareceu um caminho novo" perdia esses trabalhos por inteiro.
+    estado = {}
+    for arquivo in _arquivos_spl():
+        try:
+            info = arquivo.stat()
+        except OSError:
+            continue
+        estado[arquivo] = (info.st_mtime, info.st_size)
+    return estado
+
+
 def _ler_quando_estavel(arquivo: pathlib.Path, tempo_limite_s: float) -> bytes | None:
     inicio = time.monotonic()
     tamanho_anterior = -1
@@ -95,17 +110,29 @@ def aguardar_trabalho(nome_impressora: str, tempo_limite_s: float = 30.0) -> byt
     Confirmar por `EnumJobs` (não só "apareceu um arquivo novo na pasta de spool") é
     necessário: a pasta é compartilhada por todas as impressoras do sistema, e
     atividade alheia (achado na prática, via CI: o próprio Windows gera um PrintTicket
-    XML às vezes) seria confundida com um trabalho nosso."""
+    XML às vezes) seria confundida com um trabalho nosso. E o candidato certo pode ser
+    um arquivo já existente sendo REESCRITO, não só um caminho novo (ver
+    `_estado_dos_arquivos`) -- por isso a comparação é por (mtime, tamanho), não só por
+    quais caminhos existem."""
     inicio = time.monotonic()
     ids_existentes = _ids_dos_trabalhos(nome_impressora)
-    arquivos_existentes = _arquivos_spl()
+    estado_existente = _estado_dos_arquivos()
     while time.monotonic() - inicio < tempo_limite_s:
         if _ids_dos_trabalhos(nome_impressora) - ids_existentes:
-            novos_arquivos = _arquivos_spl() - arquivos_existentes
-            if novos_arquivos:
-                return _ler_quando_estavel(next(iter(novos_arquivos)), tempo_limite_s=10.0)
-            return None  # o trabalho foi confirmado, mas o arquivo já não está mais lá
-        arquivos_existentes |= _arquivos_spl()  # nunca esquece um arquivo alheio já visto
+            # Trabalho confirmado na fila: o arquivo pode levar um instante a mais para
+            # refletir a mudança, então dá uma folga curta específica para isso antes de
+            # desistir.
+            fim_da_espera = time.monotonic() + 3.0
+            while time.monotonic() < fim_da_espera:
+                estado_atual = _estado_dos_arquivos()
+                candidatos = [
+                    arquivo for arquivo, info in estado_atual.items() if estado_existente.get(arquivo) != info
+                ]
+                if candidatos:
+                    return _ler_quando_estavel(candidatos[0], tempo_limite_s=10.0)
+                time.sleep(INTERVALO_DE_VERIFICACAO)
+            return None  # o trabalho foi confirmado, mas nenhum arquivo mudou a tempo
+        estado_existente.update(_estado_dos_arquivos())  # nunca esquece mudança alheia já vista
         time.sleep(INTERVALO_DE_VERIFICACAO)
     return None
 
