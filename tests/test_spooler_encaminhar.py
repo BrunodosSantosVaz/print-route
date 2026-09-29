@@ -72,8 +72,11 @@ class CapturarEEncaminhar(unittest.TestCase):
                 arquivos = sorted(p.name for p in encaminhar.PASTA_SPOOL.iterdir())
             except OSError as erro:
                 arquivos = f"<erro ao listar {encaminhar.PASTA_SPOOL}: {erro}>"
+            porta = gerenciar._escolher_porta()
+            driver = gerenciar._escolher_driver()
             self.fail(
-                f"aguardar_trabalho devolveu None. Trabalhos na fila da PrintRoute: {trabalhos!r}. "
+                f"aguardar_trabalho devolveu None. Porta: {porta!r}, driver: {driver!r}. "
+                f"Trabalhos na fila da PrintRoute: {trabalhos!r}. "
                 f"Arquivos em {encaminhar.PASTA_SPOOL}: {arquivos!r}."
             )
         self.assertEqual(capturado, dados)

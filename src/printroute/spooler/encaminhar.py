@@ -23,13 +23,17 @@ import time
 import win32print
 
 PASTA_SPOOL = pathlib.Path(r"C:\Windows\System32\spool\PRINTERS")
-INTERVALO_DE_VERIFICACAO = 0.2  # segundos entre cada checagem da pasta/arquivo
-PERIODO_DE_ESTABILIDADE = 0.5  # segundos sem o arquivo crescer para considerar o trabalho concluído
+INTERVALO_DE_VERIFICACAO = 0.05  # segundos entre cada checagem da pasta/arquivo
+PERIODO_DE_ESTABILIDADE = 0.3  # segundos sem o arquivo crescer para considerar o trabalho concluído
 
 
 def _arquivos_spl() -> set[pathlib.Path]:
+    # *.SPL (o trabalho já spoolado) e *.TMP (achado na prática, via CI: o processador de
+    # impressão parece escrever num .TMP intermediário antes -- ou às vezes em vez -- de um
+    # .SPL; observar só *.SPL perdia trabalhos que completam rápido demais). Nunca .SHD: é
+    # metadado do trabalho (pequeno, estabiliza na hora), não o conteúdo.
     try:
-        return set(PASTA_SPOOL.glob("*.SPL"))
+        return set(PASTA_SPOOL.glob("*.SPL")) | set(PASTA_SPOOL.glob("*.TMP"))
     except OSError:
         return set()
 
