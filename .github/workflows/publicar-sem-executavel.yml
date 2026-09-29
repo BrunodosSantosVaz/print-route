@@ -1,0 +1,69 @@
+# "Publicar sem executavel": leva para a main o que ja esta na develop quando NADA do programa mudou
+# (docs, testes, workflows, scripts) e finaliza as issues marcadas `sem-executavel`: fecha, cartao
+# para Concluido/Corrigido e apaga as branches das tarefas. Sem versao, sem candidata, sem Release.
+#
+#   gh workflow run publicar-sem-executavel.yml -f simular=false
+#
+# Recusa (sem alterar nada) se src/ ou requirements-build.txt diferem entre main e develop: nesse
+# caso a mudanca precisa de release com homologacao. Duas etapas: "conferir" roda sempre (portao e
+# plano); "publicar" so roda com simular=false e depois da aprovacao do dono no ambiente "producao".
+name: Publicar sem executavel
+
+on:
+  workflow_dispatch:
+    inputs:
+      simular:
+        description: 'Somente conferir o portao e mostrar o plano'
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: read
+
+# mesmo grupo da publicacao em producao: nunca rodam juntas
+concurrency:
+  group: publicar-producao
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ secrets.PROJETO_TOKEN }}
+  PROJETO_OWNER: ${{ vars.PROJETO_OWNER }}
+  PROJETO_PLANEJAMENTO: ${{ vars.PROJETO_PLANEJAMENTO }}
+  PROJETO_EXECUCAO: ${{ vars.PROJETO_EXECUCAO }}
+  PROJETO_BUGS: ${{ vars.PROJETO_BUGS }}
+  BRANCH_DEVELOP: ${{ vars.BRANCH_DEVELOP || 'develop' }}
+  BRANCH_MAIN: ${{ vars.BRANCH_MAIN || 'main' }}
+
+jobs:
+  conferir:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ vars.BRANCH_MAIN || 'main' }}
+          fetch-depth: 0
+          token: ${{ secrets.PROJETO_TOKEN }}
+      - name: Portao e plano (nao altera nada)
+        run: bash .github/scripts/publicar-sem-executavel.sh
+        env:
+          SIMULAR: 'true'
+
+  publicar:
+    needs: conferir
+    if: ${{ !inputs.simular }}
+    runs-on: ubuntu-latest
+    environment: producao
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ vars.BRANCH_MAIN || 'main' }}
+          fetch-depth: 0
+          # PAT do dono (admin): avanca a main, protegida por ruleset.
+          token: ${{ secrets.PROJETO_TOKEN }}
+      - name: Publicar sem executavel
+        run: bash .github/scripts/publicar-sem-executavel.sh
+        env:
+          SIMULAR: 'false'

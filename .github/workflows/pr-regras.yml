@@ -1,0 +1,31 @@
+# Regras do processo em todo PR: nome de branch, destino correto (feature/bugfix
+# -> develop; release/hotfix -> main), referencia a issue e aviso de teste.
+# Etiqueta o PR (task/bug). O job "regras" pode virar "required check" quando o
+# repositorio tiver rulesets de protecao (docs/processo.md).
+name: Regras do PR
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write   # etiqueta `sem-executavel` na issue ligada ao PR
+
+jobs:
+  regras:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Conferir regras
+        run: bash .github/scripts/pr-regras.sh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BRANCH_DEVELOP: ${{ vars.BRANCH_DEVELOP || 'develop' }}
+          BRANCH_MAIN: ${{ vars.BRANCH_MAIN || 'main' }}

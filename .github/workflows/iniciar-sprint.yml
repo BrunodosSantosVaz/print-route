@@ -1,0 +1,49 @@
+# "Iniciar sprint": move os epicos de "Proxima sprint" para "Em desenvolvimento", poe tudo na Sprint
+# (campo Iteration) e cria as tarefas ("Tarefas previstas" de cada epico) no painel de Execucao.
+# A versao (milestone) so e usada pelos epicos que mudam o programa; sprint so com epicos
+# sem-executavel roda sem versao.
+#   gh workflow run iniciar-sprint.yml -f versao=v0.6.0 -f simular=false   # com epico que muda o programa
+#   gh workflow run iniciar-sprint.yml -f simular=false                    # so epicos sem-executavel
+name: Iniciar sprint
+
+on:
+  workflow_dispatch:
+    inputs:
+      versao:
+        description: 'Versao (ex.: v0.6.0). So para epicos que mudam o programa; vazio se todos forem sem-executavel'
+        required: false
+        type: string
+      data:
+        description: 'Data-alvo opcional da versao (AAAA-MM-DD)'
+        required: false
+        type: string
+      sprint:
+        description: 'Sprint (titulo da iteracao, ex.: Sprint 2). Vazio = a sprint atual'
+        required: false
+        type: string
+      simular:
+        description: 'Somente mostrar o que seria feito'
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  iniciar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Iniciar sprint
+        run: bash .github/scripts/iniciar-sprint.sh
+        env:
+          GH_TOKEN: ${{ secrets.PROJETO_TOKEN }}
+          VERSAO: ${{ inputs.versao }}
+          DATA: ${{ inputs.data }}
+          SPRINT: ${{ inputs.sprint }}
+          SIMULAR: ${{ inputs.simular }}
+          PROJETO_OWNER: ${{ vars.PROJETO_OWNER }}
+          PROJETO_PLANEJAMENTO: ${{ vars.PROJETO_PLANEJAMENTO }}
+          PROJETO_EXECUCAO: ${{ vars.PROJETO_EXECUCAO }}

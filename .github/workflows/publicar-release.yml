@@ -1,0 +1,53 @@
+# "Producao" do PrintRoute = promover a release candidata aprovada a versao publicada.
+# Dispara no push da main que muda a versao (merge de release/* ou hotfix/*). O ambiente
+# "producao" exige a APROVACAO DO DONO: e o "ok" humano explicito antes de publicar.
+#
+# Nao recompila: baixa o binario da ultima candidata (vX.Y.Z-rc.N, ja testada em homologacao),
+# confere o hash, e cria a tag + GitHub Release vX.Y.Z (Latest) com esse MESMO arquivo. O
+# conferir-release.sh garante que existe candidata e que o codigo nao mudou depois dela. O executavel
+# fica so na Release (nada e commitado no repositorio).
+# Depois, anuncia a versao na categoria Anuncios do Discussions; e "Pos-publicacao da release"
+# move os cartoes e devolve a main para a develop.
+name: Publicar release
+
+on:
+  push:
+    branches: [main]
+    paths: ['src/printroute/version.py']
+  # Publicacao manual da versao atual da main (idempotente). Tambem exige a aprovacao.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  discussions: write   # anunciar a versao nova no Discussions
+
+concurrency:
+  group: publicar-release
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    # ignora os commits automaticos de release (merge feito pela acao "Publicar em producao")
+    if: "${{ !startsWith(github.event.head_commit.message, 'chore(release):') }}"
+    runs-on: ubuntu-latest
+    environment: producao
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Conferir a release candidata
+        id: rc
+        run: bash .github/scripts/conferir-release.sh
+      - name: Promover a candidata a producao
+        id: pub
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RC_TAG: ${{ steps.rc.outputs.rc_tag }}
+        run: bash .github/scripts/promover-release.sh
+      - name: Anunciar no Discussions
+        if: steps.pub.outputs.nova == 'true'
+        continue-on-error: true   # o anuncio nunca deve desfazer uma publicacao ja feita
+        env:
+          GH_TOKEN: ${{ secrets.PROJETO_TOKEN || github.token }}
+          TAG: ${{ steps.pub.outputs.tag }}
+        run: bash .github/scripts/anunciar-release.sh

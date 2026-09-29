@@ -1,0 +1,48 @@
+# "Criar branches das tarefas": tarefas em "A fazer" (e bugs em "Novo") que ja estao em um
+# milestone (ou, se sem-executavel, numa Sprint: sprint sem versao) ganham a branch feature/<n>-<slug> (bugfix/... para bug) a partir da develop, e o
+# cartao vai para "Feature". Cartoes "Reprovado" na homologacao tambem ganham a branch de volta e
+# retornam para "Code". Rode depois do "Iniciar sprint" (e de novo quando houver reprovados).
+#   gh workflow run criar-branches.yml -f versao=v0.6.0 -f simular=false
+name: Criar branches das tarefas
+
+on:
+  workflow_dispatch:
+    inputs:
+      versao:
+        description: 'So o milestone desta versao (ex.: v0.6.0). Vazio = todos os milestones'
+        required: false
+        type: string
+      sprint:
+        description: 'Tarefas sem-executavel sem milestone: so desta Sprint (ex.: Sprint 2). Vazio = qualquer Sprint'
+        required: false
+        type: string
+      simular:
+        description: 'Somente mostrar o que seria feito'
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: criar-branches
+  cancel-in-progress: false
+
+jobs:
+  criar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Criar branches
+        run: bash .github/scripts/criar-branches.sh
+        env:
+          GH_TOKEN: ${{ secrets.PROJETO_TOKEN }}
+          VERSAO: ${{ inputs.versao }}
+          SPRINT: ${{ inputs.sprint }}
+          SIMULAR: ${{ inputs.simular }}
+          PROJETO_OWNER: ${{ vars.PROJETO_OWNER }}
+          PROJETO_EXECUCAO: ${{ vars.PROJETO_EXECUCAO }}
+          PROJETO_BUGS: ${{ vars.PROJETO_BUGS }}
+          BRANCH_DEVELOP: ${{ vars.BRANCH_DEVELOP || 'develop' }}

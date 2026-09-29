@@ -1,0 +1,46 @@
+name: Épico
+description: Ideia ou iniciativa grande, que será quebrada em tarefas
+labels: ["epic"]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: Problema / oportunidade
+      description: Qual dor ou ganho? Para quem? Por que agora?
+    validations:
+      required: true
+  - type: textarea
+    id: objetivo
+    attributes:
+      label: Objetivo e resultado esperado
+      description: Como saberemos que deu certo?
+    validations:
+      required: true
+  - type: dropdown
+    id: muda_programa
+    attributes:
+      label: Muda o programa?
+      description: "Muda o programa se mexe em src/ (código) ou em requirements-build.txt (o que é empacotado). Só isso gera versão e executável. Documentação, testes, esteira e compiladores NÃO mudam o programa: a sprint roda sem versão (label sem-executavel)."
+      options:
+        - "Sim: mexe em src/ ou nas dependências de build (gera versão)"
+        - "Não: documentação, testes, esteira ou compilador (sprint sem versão)"
+    validations:
+      required: true
+  - type: textarea
+    id: escopo
+    attributes:
+      label: Escopo (dentro e fora)
+  - type: textarea
+    id: regras
+    attributes:
+      label: Regras de negócio e decisões já tomadas
+  - type: textarea
+    id: riscos
+    attributes:
+      label: Riscos e dependências
+  - type: textarea
+    id: tarefas
+    attributes:
+      label: Tarefas previstas
+      description: "Uma por linha, cada uma cabendo em um PR pequeno. O botão Iniciar sprint cria uma tarefa (issue) para cada item, ligada a este épico."
+      value: "- [ ] \n- [ ] "

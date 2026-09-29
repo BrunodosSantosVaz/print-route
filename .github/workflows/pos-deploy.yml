@@ -1,0 +1,51 @@
+# Depois de a release ser PUBLICADA pelo caminho manual (workflow "Publicar release": um PR
+# mesclado na main por fora da acao "Publicar em producao", tipicamente um hotfix): encerra as issues/
+# cartoes da versao e devolve a main para a develop. A acao "Publicar em producao" faz isso sozinha.
+#
+# PrintRoute e um app compilado: nao ha deploy em servidor. "Producao" = publicar a
+# release para download. O nome em "workflows" abaixo deve ser EXATAMENTE o name: do
+# workflow publicar-release.yml.
+name: Pos-publicacao da release
+
+on:
+  workflow_run:
+    workflows: ["Publicar release"]
+    types: [completed]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: pos-deploy
+  cancel-in-progress: false
+
+jobs:
+  pos-deploy:
+    # so push na main (redeploy manual/rollback nao cria tag nem devolve nada)
+    if: >-
+      ${{ vars.PROJETO_OWNER != ''
+      && github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.event == 'push'
+      && github.event.workflow_run.head_branch == (vars.BRANCH_MAIN || 'main') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ vars.BRANCH_MAIN || 'main' }}
+          fetch-depth: 0
+          # PAT do dono (admin): o back-merge empurra na develop, que e protegida por ruleset.
+          # (Efeito colateral aceito: o push dispara a CI e a build candidata da develop.)
+          token: ${{ secrets.PROJETO_TOKEN }}
+      - name: Pos-deploy
+        run: bash .github/scripts/pos-deploy.sh
+        env:
+          GH_TOKEN: ${{ secrets.PROJETO_TOKEN }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          PROJETO_OWNER: ${{ vars.PROJETO_OWNER }}
+          PROJETO_PLANEJAMENTO: ${{ vars.PROJETO_PLANEJAMENTO }}
+          PROJETO_EXECUCAO: ${{ vars.PROJETO_EXECUCAO }}
+          PROJETO_BUGS: ${{ vars.PROJETO_BUGS }}
+          BRANCH_DEVELOP: ${{ vars.BRANCH_DEVELOP || 'develop' }}
+          BRANCH_MAIN: ${{ vars.BRANCH_MAIN || 'main' }}

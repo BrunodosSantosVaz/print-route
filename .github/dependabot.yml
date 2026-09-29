@@ -1,0 +1,26 @@
+# Atualizacoes de dependencias: um PR AGRUPADO por ecossistema, uma vez por mes, para a develop
+# (mantem o repositorio so com main e develop na maior parte do tempo). Alertas e correcoes
+# automaticas de SEGURANCA continuam imediatos (nao dependem deste arquivo).
+# Atencao: o Dependabot le este arquivo da branch padrao (main): mudancas aqui valem a partir da
+# proxima release.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+    labels: [dependencies, ignore-for-release]
+  - package-ecosystem: pip
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: monthly
+    groups:
+      python:
+        patterns: ["*"]
+    labels: [dependencies, ignore-for-release]
+    open-pull-requests-limit: 1

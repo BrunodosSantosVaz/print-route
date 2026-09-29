@@ -1,0 +1,71 @@
+# Configuração do projeto (PEP 621): metadados, versão e ferramentas. É a referência para quem mantém o
+# projeto e para as IAs (veja AGENTS.md).
+#
+# O que NÃO fica aqui, de propósito, para não duplicar:
+#   - a versão: só em src/printroute/version.py (lida abaixo, em [tool.setuptools.dynamic]);
+#   - a dependência de build (PyInstaller): só em requirements-build.txt. É o que o Dependabot atualiza e o
+#     que o portão da produção trata como "o que é empacotado" (docs/processo.md).
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "printroute"
+description = "Impressora virtual para Windows: recebe uma impressão e a reencaminha para uma ou mais impressoras (pré-configuradas, ou escolhidas na hora)"
+readme = "README.md"
+license = "AGPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [{ name = "Bruno dos Santos Vaz" }]
+requires-python = ">=3.10"
+dependencies = []
+dynamic = ["version"]
+keywords = ["impressora", "printer", "printer-driver", "print-router", "windows"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Environment :: Win32 (MS Windows)",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "Natural Language :: Portuguese (Brazilian)",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Printing",
+]
+
+[project.urls]
+"Código" = "https://github.com/BrunodosSantosVaz/print-route"
+"Downloads" = "https://github.com/BrunodosSantosVaz/print-route/releases/latest"
+"Issues" = "https://github.com/BrunodosSantosVaz/print-route/issues"
+"Processo" = "https://github.com/BrunodosSantosVaz/print-route/blob/main/docs/processo.md"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.dynamic]
+version = { attr = "printroute.version.__version__" }
+
+# Ruff: estilo e qualidade do código Python (https://docs.astral.sh/ruff/). Rodar com `ruff check .`
+# (instale com `pip install ruff` ou use `uvx ruff check .`). Roda na CI em todo PR (job "lint (Ruff)").
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E", "W",  # pycodestyle
+    "F",       # pyflakes: nomes e imports não usados, erros
+    "B",       # bugbear: armadilhas comuns
+    "UP",      # pyupgrade: sintaxe do Python 3.10+
+    "SIM",     # simplificações
+    "C90",     # complexidade (mccabe)
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 12
+
+[tool.ruff.lint.per-file-ignores]
+# modelo VSVersionInfo do PyInstaller (metadados do .exe), que é texto de uma linha só por item
+"packaging/windows/build_exe.py" = ["E501"]
+# testes: mensagens e dados de exemplo longos; o resto das regras vale igual
+"tests/*.py" = ["E501"]

@@ -1,0 +1,23 @@
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Dúvida sobre o uso do PrintRoute? Conte o que você fez e o que esperava.
+        Para reportar um erro concreto, use as [Issues](../issues/new/choose).
+  - type: input
+    id: versao
+    attributes:
+      label: Versão do PrintRoute
+      placeholder: "Ex.: 0.1.0 (aparece no título da janela)"
+  - type: input
+    id: impressoras
+    attributes:
+      label: Impressoras envolvidas (marca/modelo, quantas)
+      placeholder: "Ex.: uma HP LaserJet e uma Epson de etiqueta"
+  - type: textarea
+    id: duvida
+    attributes:
+      label: Sua dúvida
+      description: O que você tentou e o que aconteceu.
+    validations:
+      required: true

@@ -1,0 +1,22 @@
+# Ambiente virtual e caches do Python
+.venv/
+__pycache__/
+*.pyc
+# Metadados gerados por `pip install -e .` (pyproject.toml)
+*.egg-info/
+
+# Arquivos temporários do PyInstaller (o build_exe.py já os gera fora do repositório)
+build/
+dist/
+*.spec
+
+# Editores e sistema operacional
+.idea/
+.vscode/
+Thumbs.db
+.DS_Store
+
+# Saída padrão do compilador de packaging/windows/ (builds locais)
+build-local/
+rc/
+tarefa/

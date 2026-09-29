@@ -1,0 +1,34 @@
+name: Tarefa
+description: Unidade de trabalho de um épico, com testes automatizados
+labels: ["task"]
+body:
+  - type: input
+    id: epico
+    attributes:
+      label: Épico
+      description: "Número da issue do épico (ex.: #12). Depois de criar, defina o Milestone da sprint (vX.Y.Z)."
+  - type: textarea
+    id: o-que
+    attributes:
+      label: O que fazer
+    validations:
+      required: true
+  - type: textarea
+    id: aceite
+    attributes:
+      label: Critérios de aceite
+      value: "- [ ] \n- [ ] "
+    validations:
+      required: true
+  - type: textarea
+    id: testes
+    attributes:
+      label: Testes automatizados (obrigatório)
+      description: O que cada teste garante (unitário, integração, E2E)
+      value: "- [ ] Unitário: \n- [ ] Integração: \n- [ ] E2E: "
+    validations:
+      required: true
+  - type: textarea
+    id: impacto
+    attributes:
+      label: Impacto (dados, configuração, ambientes)

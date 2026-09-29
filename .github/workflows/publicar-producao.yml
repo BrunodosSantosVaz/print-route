@@ -1,0 +1,76 @@
+# "Publicar em producao": o botao final da esteira. Depois de testar a candidata em homologacao e
+# marcar cada cartao como "Aprovado", esta acao confere o portao (todos aprovados, nenhum reprovado,
+# PR da release limpo, candidata testada com codigo identico), mescla release/x.y.z na main, promove a
+# MESMA candidata a vX.Y.Z (Latest, sem recompilar), anuncia no Discussions,
+# finaliza tudo (issues, cartoes, epicos, milestone, branches das tarefas; so main, develop e
+# release/* ficam) e devolve a main para a develop.
+#
+#   gh workflow run publicar-producao.yml -f versao=v0.6.0 -f simular=false
+#
+# Duas etapas: "conferir" roda sempre (portao + plano, nao altera nada) e "publicar" so roda com
+# simular=false e depois da APROVACAO do dono no ambiente "producao" (o "ok" humano explicito).
+name: Publicar em producao
+
+on:
+  workflow_dispatch:
+    inputs:
+      versao:
+        description: 'Versao a publicar (ex.: v0.6.0): a release candidata ja testada'
+        required: true
+        type: string
+      simular:
+        description: 'Somente conferir o portao e mostrar o plano'
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  discussions: write
+
+concurrency:
+  group: publicar-producao
+  cancel-in-progress: false
+
+env:
+  VERSAO: ${{ inputs.versao }}
+  GH_TOKEN: ${{ secrets.PROJETO_TOKEN }}
+  PROJETO_OWNER: ${{ vars.PROJETO_OWNER }}
+  PROJETO_PLANEJAMENTO: ${{ vars.PROJETO_PLANEJAMENTO }}
+  PROJETO_EXECUCAO: ${{ vars.PROJETO_EXECUCAO }}
+  PROJETO_BUGS: ${{ vars.PROJETO_BUGS }}
+  BRANCH_DEVELOP: ${{ vars.BRANCH_DEVELOP || 'develop' }}
+  BRANCH_MAIN: ${{ vars.BRANCH_MAIN || 'main' }}
+
+jobs:
+  conferir:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ vars.BRANCH_MAIN || 'main' }}
+          fetch-depth: 0
+          token: ${{ secrets.PROJETO_TOKEN }}
+      - name: Portao e plano (nao altera nada)
+        run: bash .github/scripts/publicar-producao.sh
+        env:
+          SIMULAR: 'true'
+
+  publicar:
+    needs: conferir
+    if: ${{ !inputs.simular }}
+    runs-on: ubuntu-latest
+    environment: producao
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ vars.BRANCH_MAIN || 'main' }}
+          fetch-depth: 0
+          # PAT do dono (admin): mescla o PR, empurra na main e na develop (protegidas por ruleset).
+          token: ${{ secrets.PROJETO_TOKEN }}
+      - name: Publicar em producao
+        run: bash .github/scripts/publicar-producao.sh
+        env:
+          SIMULAR: 'false'

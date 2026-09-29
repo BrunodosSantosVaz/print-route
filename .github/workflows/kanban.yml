@@ -1,0 +1,64 @@
+# Move os cartoes dos paineis conforme o que acontece no GitHub.
+#   issue com label epic/task/bug ......... entra no painel certo (Brainstorm / A fazer / Novo)
+#   tarefa/bug FECHADO .................... cartao Concluido/Corrigido; ultima tarefa do epico -> epico Concluida
+#   push/PR de cartao Reprovado ........... volta para Code / CI/PR (mesma esteira)
+#   push em feature/<n>-*, bugfix/<n>-* ... Feature -> Code (tarefa) | Em correcao (bug)
+#   PR aberto ............................. CI/PR
+#   PR mesclado na develop ................ Homologacao (sem-executavel: direto para Aprovado)
+#   PR fechado sem mesclar ................ volta para Code / Em correcao
+# (release e hotfix na main: ver pos-deploy.yml)
+#
+# Configuracao (Settings > Secrets and variables > Actions):
+#   secret   PROJETO_TOKEN                          PAT com acesso aos Projects (docs/processo.md)
+#   variable PROJETO_OWNER, PROJETO_PLANEJAMENTO, PROJETO_EXECUCAO, PROJETO_BUGS
+#   variable BRANCH_DEVELOP (opcional; padrao develop)
+name: Kanban automatico
+
+on:
+  issues:
+    types: [opened, labeled, reopened, closed]
+  push:
+    branches: ['feature/**', 'bugfix/**', 'hotfix/**']
+  pull_request:
+    types: [opened, reopened, ready_for_review, closed]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+concurrency:
+  group: kanban-${{ github.event.issue.number || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  mover:
+    if: ${{ vars.PROJETO_OWNER != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      # Em PR, os scripts vem da branch de destino (nao do PR): o PR nao consegue
+      # alterar o script que roda com o token dos paineis.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+      - name: Mover cartoes
+        if: ${{ hashFiles('.github/scripts/kanban.sh') != '' }}
+        run: bash .github/scripts/kanban.sh
+        env:
+          GH_TOKEN: ${{ secrets.PROJETO_TOKEN }}
+          PROJETO_OWNER: ${{ vars.PROJETO_OWNER }}
+          PROJETO_PLANEJAMENTO: ${{ vars.PROJETO_PLANEJAMENTO }}
+          PROJETO_EXECUCAO: ${{ vars.PROJETO_EXECUCAO }}
+          PROJETO_BUGS: ${{ vars.PROJETO_BUGS }}
+          BRANCH_DEVELOP: ${{ vars.BRANCH_DEVELOP || 'develop' }}
+          EVENT: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          ISSUE: ${{ github.event.issue.number }}
+          REF_NAME: ${{ github.ref_name }}
+          CREATED: ${{ github.event.created }}
+          DELETED: ${{ github.event.deleted }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          MERGED: ${{ github.event.pull_request.merged }}
+          DRAFT: ${{ github.event.pull_request.draft }}
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}

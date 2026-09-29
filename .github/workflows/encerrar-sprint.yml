@@ -1,0 +1,43 @@
+# Limpeza pos-producao (a acao "Publicar em producao" ja faz isto sozinha; use este botao so para
+# refazer/completar): fecha issues do milestone, move cartoes, fecha epicos concluidos e o milestone,
+# e apaga as branches das tarefas ja mescladas (release/* fica). Rode com "simular" marcado para ver antes.
+#   gh workflow run encerrar-sprint.yml -f versao=v0.6.0 -f simular=false
+name: Encerrar sprint
+
+on:
+  workflow_dispatch:
+    inputs:
+      versao:
+        description: 'Versao publicada em producao (ex.: v0.6.0)'
+        required: true
+        type: string
+      simular:
+        description: 'Somente mostrar o que seria feito'
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: encerrar-sprint
+  cancel-in-progress: false
+
+jobs:
+  encerrar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Encerrar
+        run: bash .github/scripts/encerrar-sprint.sh
+        env:
+          GH_TOKEN: ${{ secrets.PROJETO_TOKEN }}
+          VERSAO: ${{ inputs.versao }}
+          SIMULAR: ${{ inputs.simular }}
+          PROJETO_OWNER: ${{ vars.PROJETO_OWNER }}
+          PROJETO_PLANEJAMENTO: ${{ vars.PROJETO_PLANEJAMENTO }}
+          PROJETO_EXECUCAO: ${{ vars.PROJETO_EXECUCAO }}
+          PROJETO_BUGS: ${{ vars.PROJETO_BUGS }}

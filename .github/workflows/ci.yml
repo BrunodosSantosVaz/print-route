@@ -1,0 +1,71 @@
+# Validacao de todo PR e de push na main/develop, em ambiente limpo (Windows, onde roda a interface;
+# e Linux, para os scripts da esteira, que e onde eles rodam de verdade nas Actions). O job "check" e o gate obrigatorio.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: check
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Sintaxe
+        run: python -m compileall -q src scripts tests
+      - name: Testes
+        run: python -m unittest discover -s tests -v
+
+  # Garante a promessa do README (Python 3.10 ou superior). Nao e gate obrigatorio.
+  compat:
+    name: compat (Python ${{ matrix.python }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.10', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Testes
+        run: python -m unittest discover -s tests -v
+
+  # Testes dos scripts do processo (bash + git) no Linux, onde eles de fato rodam nas Actions.
+  scripts:
+    name: scripts (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Testes dos scripts
+        working-directory: tests
+        run: python -m unittest -v test_pr_regras test_conferir_release test_tarefas_do_epico test_slug test_mesclar test_sem_executavel test_promover_release test_publicar_producao test_atualizar_release test_build_exe test_projeto_sprint test_muda_programa test_iniciar_sprint test_criar_branches test_integrar_release test_apagar_release test_encerrar_sprint test_versao
+
+  # Estilo e qualidade do codigo com o Ruff, nas regras do pyproject.toml ([tool.ruff]).
+  lint:
+    name: lint (Ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install "ruff>=0.6,<1"
+      - name: Ruff
+        run: ruff check . --output-format=github

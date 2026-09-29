@@ -1,0 +1,16 @@
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tem uma ideia de melhoria? Explique o **problema** que ela resolve.
+        Se já for um pedido concreto (bug ou tarefa), as [Issues](../issues/new/choose) são o caminho.
+  - type: textarea
+    id: problema
+    attributes:
+      label: Qual problema você quer resolver?
+    validations:
+      required: true
+  - type: textarea
+    id: ideia
+    attributes:
+      label: Como você imagina a solução?

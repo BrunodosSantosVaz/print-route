@@ -1,0 +1,35 @@
+name: Bug
+description: Algo não funciona como deveria
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: ambiente
+    attributes:
+      label: Onde ocorre
+      options: [Homologação, Produção]
+    validations:
+      required: true
+  - type: dropdown
+    id: severidade
+    attributes:
+      label: Severidade
+      options: [Crítico, Alto, Médio, Baixo]
+    validations:
+      required: true
+  - type: textarea
+    id: passos
+    attributes:
+      label: Passos para reproduzir
+      value: "1. \n2. \n3. "
+    validations:
+      required: true
+  - type: textarea
+    id: esperado
+    attributes:
+      label: Resultado esperado × obtido
+    validations:
+      required: true
+  - type: textarea
+    id: evidencias
+    attributes:
+      label: Evidências (sem dados pessoais ou segredos)

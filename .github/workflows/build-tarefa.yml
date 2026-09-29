@@ -1,0 +1,36 @@
+# Build de TAREFA (PrintRoute): a cada merge na develop compila o .exe e o guarda como artefato temporario
+# (14 dias) para testar a mudanca isolada antes de aprovar a tarefa. Sem versao: nao e uma release.
+# A homologacao versionada e a release candidata (vX.Y.Z-rc.N), ver build-release.yml.
+# Nao publica nada e nao mexe em releases/.
+name: Build de tarefa
+
+on:
+  push:
+    branches: [develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-tarefa
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements-build.txt
+      - name: Testes
+        run: python -m unittest discover -s tests -v
+      - name: Compilar
+        run: python packaging/windows/build_exe.py --saida tarefa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PrintRoute-tarefa-${{ github.sha }}
+          path: tarefa/*
+          retention-days: 14
+          if-no-files-found: error

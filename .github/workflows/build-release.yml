@@ -1,0 +1,128 @@
+# Homologacao do PrintRoute = uma RELEASE CANDIDATA versionada, sempre criada ANTES de testar.
+# A cada push em release/x.y.z (ou hotfix/*): compila o .exe (Windows) no CI, atesta a procedencia e
+# cria a pre-release vX.Y.Z-rc.N (rc.1, rc.2, ... a cada correcao) com o executavel e o hash. O dono
+# testa exatamente esse arquivo; aprovando, a acao "Publicar em producao" promove o MESMO binario a
+# producao (vX.Y.Z), sem recompilar. Nada e commitado nesta etapa (o Git guarda so codigo).
+#
+# Em release/x.y.z (criada pelo "Integrar release") ha um segundo job, "homologar": depois da candidata
+# leva a release para a develop, move os cartoes para Homologacao e abre o PR da release para a main.
+#
+# Precondicao: o arquivo de versao (.github/scripts/versao.sh) e o CHANGELOG.md ja estao na versao da branch (o "Integrar release" os
+# atualiza antes do push). Se diferirem, o job apenas avisa e espera o proximo push.
+name: Build release candidata
+
+on:
+  push:
+    branches: ['release/**', 'hotfix/**']
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: build-rc-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  candidata:
+    runs-on: windows-latest
+    outputs:
+      rc_tag: ${{ steps.criar.outputs.rc_tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # precisa das tags para numerar a candidata
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Versao e numero da candidata
+        id: v
+        shell: bash
+        run: |
+          versao=$(bash .github/scripts/versao.sh)
+          echo "versao=$versao" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF_NAME" =~ ^release/([0-9]+\.[0-9]+\.[0-9]+)$ && "${BASH_REMATCH[1]}" != "$versao" ]]; then
+            echo "::warning::A versao do codigo esta em $versao, mas a branch e ${BASH_REMATCH[1]}. Atualize a versao e o CHANGELOG nesta branch; a candidata sera gerada no proximo push."
+            echo "pular=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/v${versao}" >/dev/null 2>&1; then
+            echo "::error::A versao v${versao} ja foi publicada. Suba a versao no arquivo de versao (e o CHANGELOG) antes de gerar uma nova candidata."
+            exit 1
+          fi
+          n=$(( $(git tag -l "v${versao}-rc.*" | wc -l) + 1 ))
+          echo "n=$n" >> "$GITHUB_OUTPUT"
+          echo "Candidata: v${versao}-rc.${n}"
+      - run: pip install -r requirements-build.txt
+        if: steps.v.outputs.pular != 'true'
+      - name: Testes
+        if: steps.v.outputs.pular != 'true'
+        run: python -m unittest discover -s tests -v
+      - name: Compilar
+        if: steps.v.outputs.pular != 'true'
+        run: python packaging/windows/build_exe.py --rc ${{ steps.v.outputs.n }} --saida rc
+      - name: Atestar procedencia
+        if: steps.v.outputs.pular != 'true'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: rc/*.exe
+      - name: Criar a pre-release (homologacao)
+        if: steps.v.outputs.pular != 'true'
+        id: criar
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSAO: ${{ steps.v.outputs.versao }}
+          N: ${{ steps.v.outputs.n }}
+        run: |
+          tag="v${VERSAO}-rc.${N}"
+          exe="PrintRoute-${tag}-windows-x64.exe"
+          (cd rc && sha256sum -c SHA256SUMS.txt)
+          {
+            echo "## Release candidata (homologação)"
+            echo
+            echo "Esta é uma **pre-release para testar**. **Não é a versão de produção.** Depois de testado e aprovado, este mesmo binário é promovido a \`v${VERSAO}\` (produção), sem recompilar."
+            echo
+            echo "- Branch: \`${GITHUB_REF_NAME}\`"
+            echo "- Commit: \`${GITHUB_SHA}\`"
+            echo "- Procedência: \`gh attestation verify ${exe} --repo ${GITHUB_REPOSITORY}\`"
+            echo
+            echo "### Conferir o download"
+            echo
+            echo '```powershell'
+            echo "Get-FileHash .\\${exe} -Algorithm SHA256"
+            echo '```'
+          } > notas.md
+          gh release create "$tag" "rc/${exe}" rc/SHA256SUMS.txt \
+            --prerelease --target "$GITHUB_SHA" \
+            --title "PrintRoute ${tag} (homologação)" --notes-file notas.md
+          echo "rc_tag=${tag}" >> "$GITHUB_OUTPUT"
+
+  # So em release/x.y.z (nao em hotfix): a candidata existe, entao a release entra na develop.
+  homologar:
+    needs: candidata
+    if: ${{ needs.candidata.outputs.rc_tag != '' && startsWith(github.ref_name, 'release/') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # PAT do dono (admin): empurra na develop (protegida por ruleset) e dispara a CI dela.
+          token: ${{ secrets.PROJETO_TOKEN }}
+      - name: Homologar (develop, cartoes e PR da release)
+        run: bash .github/scripts/homologar-release.sh
+        env:
+          GH_TOKEN: ${{ secrets.PROJETO_TOKEN }}
+          BRANCH: ${{ github.ref_name }}
+          RC_TAG: ${{ needs.candidata.outputs.rc_tag }}
+          PROJETO_OWNER: ${{ vars.PROJETO_OWNER }}
+          PROJETO_EXECUCAO: ${{ vars.PROJETO_EXECUCAO }}
+          PROJETO_BUGS: ${{ vars.PROJETO_BUGS }}
+          BRANCH_DEVELOP: ${{ vars.BRANCH_DEVELOP || 'develop' }}
+          BRANCH_MAIN: ${{ vars.BRANCH_MAIN || 'main' }}
