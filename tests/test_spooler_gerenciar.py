@@ -17,9 +17,8 @@ class InstalarEDesinstalar(unittest.TestCase):
     def tearDown(self):
         gerenciar.desinstalar()
 
-    def test_instala_a_porta_e_a_impressora(self):
+    def test_instala_a_impressora(self):
         gerenciar.instalar()
-        self.assertTrue(gerenciar.porta_existe())
         self.assertTrue(gerenciar.impressora_existe())
 
     def test_instalar_duas_vezes_nao_falha_nem_duplica(self):
@@ -27,11 +26,10 @@ class InstalarEDesinstalar(unittest.TestCase):
         gerenciar.instalar()
         self.assertTrue(gerenciar.impressora_existe())
 
-    def test_desinstalar_remove_a_impressora_e_a_porta(self):
+    def test_desinstalar_remove_a_impressora(self):
         gerenciar.instalar()
         gerenciar.desinstalar()
         self.assertFalse(gerenciar.impressora_existe())
-        self.assertFalse(gerenciar.porta_existe())
 
     def test_desinstalar_sem_estar_instalado_nao_falha(self):
         gerenciar.desinstalar()

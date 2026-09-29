@@ -46,9 +46,12 @@ Consulte **sempre** o `pyproject.toml` antes de assumir qualquer coisa sobre o p
 - **Versão**: o `pyproject.toml` a lê do `src/printroute/version.py`. Nunca escreva a versão em outro
   lugar, e nunca a altere à mão: é a esteira que sobe a versão ao integrar uma release.
 - **Estilo e qualidade**: a configuração do Ruff (`[tool.ruff]`). Rode `uvx ruff check .` no que você mexer.
-- **Dependências**: `pywin32` (só Windows, `sys_platform == 'win32'`), usado em `spooler/gerenciar.py`.
-  CI instala com `pip install -e .` antes dos testes nos jobs `check`/`compat` (windows-latest).
-  A de build (o PyInstaller) fica **só** no `requirements-build.txt`. Não a duplique no `pyproject.toml`.
+- **Dependências**: hoje o programa não tem dependências de execução (`dependencies = []`) —
+  `spooler/gerenciar.py` usa só cmdlets do PowerShell via `subprocess`. `pywin32` vai entrar quando
+  a captura de verdade (`FindFirstPrinterChangeNotification`) chegar em `src/`. CI já roda
+  `pip install -e .` antes dos testes nos jobs `check`/`compat` (windows-latest), pronta para quando
+  isso acontecer. A dependência de build (o PyInstaller) fica **só** no `requirements-build.txt`.
+  Não a duplique no `pyproject.toml`.
 - Se precisar de uma configuração nova de ferramenta, ela vai no `pyproject.toml`, e não em arquivos soltos.
 
 ## Comandos
@@ -69,7 +72,7 @@ A saída do compilador vai para `build-local/`, que é ignorada pelo Git. Apague
 | Pasta | Conteúdo |
 |---|---|
 | `src/printroute/` | O programa (pacote). Mexer aqui **muda o executável** e exige uma versão nova. |
-| `src/printroute/spooler/` | Instala/remove a impressora PrintRoute no Windows (porta + impressora), via cmdlets do PowerShell. Testes só rodam no Windows (`check`/`compat` na CI). |
+| `src/printroute/spooler/` | Instala/remove a impressora PrintRoute no Windows (porta NUL:, já embutida), via cmdlets do PowerShell. Testes só rodam no Windows (`check`/`compat` na CI). |
 | `tests/` | Testes (`unittest`), inclusive dos scripts da esteira. |
 | `packaging/windows/` | Compilador do `.exe`. |
 | `scripts/processo/` | Configuração do GitHub (labels, painéis, automações). |

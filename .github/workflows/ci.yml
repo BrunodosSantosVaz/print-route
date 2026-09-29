@@ -23,7 +23,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Instalar dependências (pywin32)
+      - name: Instalar o pacote
         run: pip install -e .
       - name: Sintaxe
         run: python -m compileall -q src scripts tests
@@ -43,7 +43,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-      - name: Instalar dependências (pywin32)
+      - name: Instalar o pacote
         run: pip install -e .
       - name: Testes
         run: python -m unittest discover -s tests -v
