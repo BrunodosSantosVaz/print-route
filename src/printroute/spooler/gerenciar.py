@@ -1,9 +1,12 @@
 """Instala e remove a impressora PrintRoute no Windows: a porta local (arquivo) e a
-impressora em si. Usa os cmdlets do PowerShell (Add-PrinterPort, Add-Printer,
-Remove-Printer, Remove-PrinterPort) em vez da API Win32 de baixo nível: são a forma
-documentada e estável de gerenciar impressoras no Windows, e evitam lidar diretamente
-com as estruturas PRINTER_INFO_2 da API nativa. O driver é escolhido em tempo de
-execução entre alguns candidatos já instalados no Windows (ver CANDIDATOS_DE_DRIVER):
+impressora em si. Usa sobretudo os cmdlets do PowerShell (Add-PrinterPort, Add-Printer,
+Remove-Printer) em vez da API Win32 de baixo nível diretamente: são a forma documentada
+e estável de gerenciar impressoras no Windows, e evitam lidar com as estruturas
+PRINTER_INFO_2 da API nativa. A exceção é remover a porta, feita com
+`win32print.DeletePort` (pywin32): os cmdlets equivalentes (Remove-PrinterPort e
+rundll32 printui.dll) falharam de verdade na CI para um nome de porta com barra
+invertida -- ver o docstring de `desinstalar`. O driver é escolhido em tempo de execução
+entre alguns candidatos já instalados no Windows (ver CANDIDATOS_DE_DRIVER):
 "Generic / Text Only", validado no protótipo da tarefa #4 (poc/), não existe por padrão
 no Windows Server usado pelos runners da CI (confirmado por um teste que falhou), então
 não dá para fixar um nome só. A tarefa #3 (encaminhar de verdade) deve revisitar essa
@@ -12,8 +15,12 @@ escolha ao integrar o Ghostscript.
 Ver AGENTS.md, seção "Arquitetura de captura de impressão", e a tarefa #5 do épico #3.
 """
 import base64
+import contextlib
 import subprocess
 import time
+
+import pywintypes
+import win32print
 
 NOME_IMPRESSORA = "PrintRoute"
 PASTA_DADOS = r"C:\ProgramData\PrintRoute"
@@ -111,22 +118,21 @@ def desinstalar() -> None:
     para soltá-la depois de remover a impressora que a usava (confirmado na CI: a
     primeira tentativa, logo após Remove-Printer, às vezes não é suficiente).
 
-    A remoção da porta usa `printui.dll,PrintUIEntry` (via rundll32), não o cmdlet
-    `Remove-PrinterPort`: tanto `-Name '<caminho>'` quanto `Get-PrinterPort | Remove-PrinterPort`
-    dão "Names may not contain ',' or '\\' characters" para um nome de porta com barra
-    invertida (confirmado na CI nos dois formatos) -- uma limitação conhecida desse
-    cmdlet. O `printui.dll` é a forma antiga, mas não tem essa validação."""
+    A remoção da porta usa `win32print.DeletePort` (pywin32, a API Win32 direta), não um
+    cmdlet do PowerShell: `Remove-PrinterPort -Name '<caminho>'`,
+    `Get-PrinterPort | Remove-PrinterPort` e `rundll32 printui.dll,PrintUIEntry /dl`
+    falharam todos, confirmado na CI -- os dois primeiros com "Names may not contain ','
+    or '\\' characters" (uma limitação conhecida desses cmdlets com nomes de porta que
+    têm barra invertida) e o terceiro silenciosamente (não é confiável sem uma sessão
+    interativa). A API `DeletePort` não tem essa validação."""
     _powershell(f"Remove-Printer -Name '{NOME_IMPRESSORA}' -ErrorAction SilentlyContinue")
     for tentativa in range(10):
         if not porta_existe():
             return
         if tentativa:
             time.sleep(1)
-        subprocess.run(
-            ["rundll32", "printui.dll,PrintUIEntry", "/dl", "/n", CAMINHO_PORTA, "/q"],
-            capture_output=True,
-            text=True,
-        )
+        with contextlib.suppress(pywintypes.error):
+            win32print.DeletePort(None, 0, CAMINHO_PORTA)
     if porta_existe():
         raise ErroDoPowerShell(f"Não consegui remover a porta '{CAMINHO_PORTA}' depois de várias tentativas.")
 

@@ -46,8 +46,8 @@ Consulte **sempre** o `pyproject.toml` antes de assumir qualquer coisa sobre o p
 - **Versão**: o `pyproject.toml` a lê do `src/printroute/version.py`. Nunca escreva a versão em outro
   lugar, e nunca a altere à mão: é a esteira que sobe a versão ao integrar uma release.
 - **Estilo e qualidade**: a configuração do Ruff (`[tool.ruff]`). Rode `uvx ruff check .` no que você mexer.
-- **Dependências**: hoje o programa não tem dependências de execução (`dependencies = []`) — vai
-  precisar de `pywin32` (captura/impressão) quando as tarefas 2/3 do épico #3 chegarem em `src/`.
+- **Dependências**: `pywin32` (só Windows, `sys_platform == 'win32'`), usado em `spooler/gerenciar.py`.
+  CI instala com `pip install -e .` antes dos testes nos jobs `check`/`compat` (windows-latest).
   A de build (o PyInstaller) fica **só** no `requirements-build.txt`. Não a duplique no `pyproject.toml`.
 - Se precisar de uma configuração nova de ferramenta, ela vai no `pyproject.toml`, e não em arquivos soltos.
 
