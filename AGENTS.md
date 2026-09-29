@@ -13,18 +13,30 @@ de impressão do Windows). Licença AGPL-3.0.
 ## Estado atual: ainda não há funcionalidade real
 
 Este repositório tem a esteira completa de desenvolvimento e só um esqueleto do programa (janela Tkinter
-vazia, `src/printroute/__main__.py`). **Não implemente reencaminhamento de impressão sem o dono decidir
-a arquitetura antes** (veja abaixo). Não assuma que uma API ou biblioteca específica já foi escolhida.
+vazia, `src/printroute/__main__.py`). A arquitetura de captura de impressão (abaixo) já foi decidida pelo
+dono; o que falta é implementá-la e validá-la na prática (épico #3).
 
-## Risco técnico em aberto
+## Arquitetura de captura de impressão (decidida em 29/09/2026)
 
-Uma impressora virtual de verdade no Windows precisa de um **port monitor** registrado no spooler
-(`spoolsv.exe`), que tipicamente é uma **DLL nativa** (C/C++). O `pywin32`/`win32print` administra
-impressoras, portas e trabalhos de impressão via API, mas **não** cria um port monitor do zero em Python
-puro. Produtos parecidos (ex.: RedMon) resolvem isso com um monitor nativo já pronto que encaminha os
-bytes brutos para um processo externo — esse processo externo (a lógica de destino, o seletor etc.) pode
-ser Python. Essa decisão de arquitetura é a primeira pergunta do primeiro épico do projeto: não a tome
-sozinho, discuta com o dono antes de implementar qualquer captura real de impressão.
+Ver a discussão completa na [issue #3](https://github.com/BrunodosSantosVaz/print-route/issues/3),
+seção "Riscos e dependências". Resumo: **sem port monitor nativo, sem RedMon** (o mantenedor do RedMon
+lista suporte a Windows 10 como "won't be implemented"). Em vez disso, o mesmo princípio do
+[PrintManager](https://github.com/jtquisenberry/PrintManager) (AGPL-3.0), mas 100% em Python:
+
+1. **Captura**: `win32print.FindFirstPrinterChangeNotification` / `FindNextPrinterChangeNotification`
+   (`pywin32`) — API padrão do spooler, sem DLL customizada. (O protótipo mínimo da tarefa #4, em
+   `poc/`, usa uma técnica ainda mais simples — uma Porta Local apontando para um arquivo — só para
+   provar que os bytes chegam até o Python; a captura definitiva das tarefas 2/3 deve usar
+   `FindFirstPrinterChangeNotification`, não ficar checando arquivo.)
+2. **Conversão**: **Ghostscript** (AGPL, binário embutido no instalador) rasteriza/converte o trabalho
+   capturado.
+3. **Reenvio**: cada impressora de destino recebe o trabalho pelo **driver dela própria** (via
+   `win32print`/GDI), não por um pass-through cego de bytes — evita incompatibilidade entre impressoras
+   de marcas/linguagens diferentes.
+
+Antes de implementar as tarefas 2 e 3 do épico #3 com essa arquitetura, confirme que o protótipo da
+tarefa #4 (`poc/`) foi validado pelo dono num Windows de verdade — quem escreve este código não tem
+acesso a uma máquina Windows neste ambiente.
 
 ## `pyproject.toml` é a referência
 
@@ -35,7 +47,7 @@ Consulte **sempre** o `pyproject.toml` antes de assumir qualquer coisa sobre o p
   lugar, e nunca a altere à mão: é a esteira que sobe a versão ao integrar uma release.
 - **Estilo e qualidade**: a configuração do Ruff (`[tool.ruff]`). Rode `uvx ruff check .` no que você mexer.
 - **Dependências**: hoje o programa não tem dependências de execução (`dependencies = []`) — vai
-  precisar de uma quando a arquitetura de captura de impressão for decidida (provavelmente `pywin32`).
+  precisar de `pywin32` (captura/impressão) quando as tarefas 2/3 do épico #3 chegarem em `src/`.
   A de build (o PyInstaller) fica **só** no `requirements-build.txt`. Não a duplique no `pyproject.toml`.
 - Se precisar de uma configuração nova de ferramenta, ela vai no `pyproject.toml`, e não em arquivos soltos.
 
@@ -81,8 +93,9 @@ A saída do compilador vai para `build-local/`, que é ignorada pelo Git. Apague
 
 ## O que a IA nunca faz sem pedido explícito do dono
 
-- Decidir a arquitetura de captura de impressão (veja [Risco técnico em aberto](#risco-técnico-em-aberto))
-  ou implementar qualquer coisa que registre um port monitor, driver ou serviço no Windows.
+- Mudar a arquitetura de captura de impressão já decidida (veja
+  [Arquitetura de captura de impressão](#arquitetura-de-captura-de-impressão-decidida-em-29092026)) sem
+  discutir com o dono, ou registrar um port monitor, driver ou serviço no Windows fora dessa arquitetura.
 - Aprovar PR (label `aprovado`), mover cartão para *Aprovado*/*Reprovado*, aprovar o ambiente `producao`
   ou rodar *Publicar em produção* / *Publicar sem executável*. Uma autorização vale **só** para a sprint
   em que foi dada.

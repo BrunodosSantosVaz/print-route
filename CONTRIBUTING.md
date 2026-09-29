@@ -5,10 +5,12 @@ Obrigado por querer ajudar! Este guia mostra como contribuir sem tropeços. O pr
 
 ## O projeto está no início
 
-Ainda não há funcionalidade real de reencaminhamento de impressão, e a arquitetura (como interceptar a
-impressão no Windows) ainda não foi decidida — veja [AGENTS.md](AGENTS.md#risco-técnico-em-aberto). Antes
-de programar algo grande, **discuta primeiro** em [Discussions](https://github.com/BrunodosSantosVaz/print-route/discussions)
-ou numa issue: evita trabalho jogado fora numa direção que ainda pode mudar.
+Ainda não há funcionalidade real de reencaminhamento de impressão. A arquitetura de captura já foi
+decidida — veja [AGENTS.md](AGENTS.md#arquitetura-de-captura-de-impressão-decidida-em-29092026) — e está
+sendo implementada e validada no [épico #3](https://github.com/BrunodosSantosVaz/print-route/issues/3).
+Antes de programar algo grande fora desse épico, **discuta primeiro** em
+[Discussions](https://github.com/BrunodosSantosVaz/print-route/discussions) ou numa issue: evita trabalho
+jogado fora numa direção que ainda pode mudar.
 
 ## Jeitos de contribuir
 
