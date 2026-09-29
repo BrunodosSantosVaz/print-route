@@ -2,9 +2,12 @@
 impressora em si. Usa os cmdlets do PowerShell (Add-PrinterPort, Add-Printer,
 Remove-Printer, Remove-PrinterPort) em vez da API Win32 de baixo nível: são a forma
 documentada e estável de gerenciar impressoras no Windows, e evitam lidar diretamente
-com as estruturas PRINTER_INFO_2 da API nativa. O driver "Generic / Text Only" é o
-mesmo usado no protótipo da tarefa #4 (poc/), já validado pelo dono; a tarefa #3
-(encaminhar de verdade) deve revisitar essa escolha ao integrar o Ghostscript.
+com as estruturas PRINTER_INFO_2 da API nativa. O driver é escolhido em tempo de
+execução entre alguns candidatos já instalados no Windows (ver CANDIDATOS_DE_DRIVER):
+"Generic / Text Only", validado no protótipo da tarefa #4 (poc/), não existe por padrão
+no Windows Server usado pelos runners da CI (confirmado por um teste que falhou), então
+não dá para fixar um nome só. A tarefa #3 (encaminhar de verdade) deve revisitar essa
+escolha ao integrar o Ghostscript.
 
 Ver AGENTS.md, seção "Arquitetura de captura de impressão", e a tarefa #5 do épico #3.
 """
@@ -14,7 +17,17 @@ import subprocess
 NOME_IMPRESSORA = "PrintRoute"
 PASTA_DADOS = r"C:\ProgramData\PrintRoute"
 CAMINHO_PORTA = PASTA_DADOS + r"\trabalho.spl"
-NOME_DRIVER = "Generic / Text Only"
+
+# Ordem de preferência: o primeiro já instalado no Windows é usado. "Generic / Text
+# Only" é o do protótipo da tarefa #4 (Windows cliente); os outros são drivers
+# virtuais que também costumam vir com o Windows (cliente e Server), usados como
+# alternativa em máquinas sem o primeiro (ex.: os runners da CI).
+CANDIDATOS_DE_DRIVER = (
+    "Generic / Text Only",
+    "Microsoft Print To PDF",
+    "Microsoft XPS Document Writer v4",
+    "Microsoft XPS Document Writer",
+)
 
 _MARCADOR_DE_ERRO = "ERRO_POWERSHELL:"
 
@@ -70,6 +83,16 @@ def impressora_existe() -> bool:
     return bool(saida)
 
 
+def _escolher_driver() -> str:
+    for nome in CANDIDATOS_DE_DRIVER:
+        saida = _powershell(
+            f"Get-PrinterDriver -Name '{nome}' -ErrorAction SilentlyContinue | ConvertTo-Json -Compress"
+        )
+        if saida:
+            return nome
+    raise ErroDoPowerShell("Nenhum driver candidato está instalado: " + ", ".join(CANDIDATOS_DE_DRIVER))
+
+
 def instalar() -> None:
     """Cria a pasta de dados, a porta e a impressora PrintRoute. Repetir a chamada não
     duplica nada (idempotente)."""
@@ -77,7 +100,8 @@ def instalar() -> None:
     if not porta_existe():
         _powershell(f"Add-PrinterPort -Name '{CAMINHO_PORTA}'")
     if not impressora_existe():
-        _powershell(f"Add-Printer -Name '{NOME_IMPRESSORA}' -DriverName '{NOME_DRIVER}' -PortName '{CAMINHO_PORTA}'")
+        driver = _escolher_driver()
+        _powershell(f"Add-Printer -Name '{NOME_IMPRESSORA}' -DriverName '{driver}' -PortName '{CAMINHO_PORTA}'")
 
 
 def desinstalar() -> None:
