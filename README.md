@@ -15,9 +15,10 @@ pré-configuradas, ou escolhidas na hora, num seletor. Pensado para sistemas que
 
 **Em desenvolvimento inicial, sem release funcional ainda.** Este repositório traz a esteira completa
 de desenvolvimento e um esqueleto do programa (uma janela Tkinter vazia), mas **ainda não reencaminha
-nenhuma impressão**. A arquitetura de como interceptar a impressão no Windows (provavelmente um *port
-monitor* do spooler) é a primeira decisão do projeto, ainda em aberto — veja
-[AGENTS.md](AGENTS.md#risco-técnico-em-aberto). Sem executável publicado nas Releases por enquanto.
+nenhuma impressão**. A arquitetura de captura já foi decidida (sem port monitor nativo, sem RedMon —
+veja [AGENTS.md](AGENTS.md#arquitetura-de-captura-de-impressão-decidida-em-29092026)) e está sendo
+implementada e validada no [épico #3](https://github.com/BrunodosSantosVaz/print-route/issues/3). Sem
+executável publicado nas Releases por enquanto.
 
 ## Para que serve
 
