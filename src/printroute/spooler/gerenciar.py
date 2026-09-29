@@ -20,19 +20,22 @@ _MARCADOR_DE_ERRO = "ERRO_POWERSHELL:"
 
 
 class ErroDoPowerShell(RuntimeError):
-    """Um cmdlet do PowerShell terminou com erro; a mensagem vem de $_.Exception.Message
-    (capturada dentro do próprio script, para não depender de como o processo pai lê o
-    stderr) ou, faltando isso, do código de saída e do repr de stdout/stderr."""
+    """Um cmdlet do PowerShell terminou com erro; a mensagem vem de $_.Exception.Message,
+    capturada dentro do próprio script (ver _powershell)."""
 
 
 def _powershell(comando: str) -> str:
     # -EncodedCommand (Base64 de UTF-16LE) em vez de -Command com a string crua: evita
     # qualquer ambiguidade de aspas/pipe ao montar a linha de comando pelo subprocess no
-    # Windows. O try/catch escreve a mensagem de erro no stdout (com um marcador), porque
-    # depender só do stderr do processo mostrou-se pouco confiável na CI (retornava vazio
-    # mesmo com o comando falhando). -ExecutionPolicy Bypass: sem isso, o carregamento
-    # automático do módulo PrintManagement (módulo de script, não binário) pode ser
-    # bloqueado pela política de execução do Windows.
+    # Windows. -ExecutionPolicy Bypass: sem isso, o carregamento automático do módulo
+    # PrintManagement (módulo de script, não binário) pode ser bloqueado pela política de
+    # execução do Windows.
+    #
+    # O sinal de falha é o marcador escrito pelo catch, NUNCA o código de saída do
+    # processo: o powershell.exe clássico pode voltar 1 mesmo sem nenhuma exceção, só
+    # por ter havido um erro não-terminante internamente suprimido por
+    # -ErrorAction SilentlyContinue (confirmado na CI: Get-PrinterPort "não encontrado",
+    # um resultado válido e esperado, às vezes sai com código 1 mesmo assim).
     script = (
         "$ErrorActionPreference = 'Stop'\n"
         "try {\n"
@@ -50,10 +53,6 @@ def _powershell(comando: str) -> str:
     saida = resultado.stdout.strip()
     if saida.startswith(_MARCADOR_DE_ERRO):
         raise ErroDoPowerShell(saida[len(_MARCADOR_DE_ERRO) :].strip())
-    if resultado.returncode != 0:
-        raise ErroDoPowerShell(
-            f"codigo de saida {resultado.returncode}; stdout={resultado.stdout!r}; stderr={resultado.stderr!r}"
-        )
     return saida
 
 
