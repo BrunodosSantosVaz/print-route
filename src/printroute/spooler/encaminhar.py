@@ -4,14 +4,18 @@ tarefa #6: uma impressora fixa, uma cópia, sem rasterização -- o Ghostscript 
 quando o driver da impressora de destino for diferente do de origem) fica para uma
 tarefa futura, ver AGENTS.md, "Arquitetura de captura de impressão".
 
-A captura observa a pasta de spool do próprio Windows, a mesma técnica (heurística de
-"arquivo parou de crescer") já validada no protótipo da tarefa #4 (poc/), agora
-apontada para a pasta de verdade do spooler em vez de uma porta própria. **Não** usa
-`FindFirstPrinterChangeNotification`: essa função **não é exposta pelo pywin32**
+A captura confirma o trabalho novo pela fila da própria impressora (`EnumJobs`) e só
+então lê o arquivo correspondente na pasta de spool do Windows -- a mesma heurística de
+"arquivo parou de crescer" já validada no protótipo da tarefa #4 (poc/), agora apontada
+para a pasta de verdade do spooler em vez de uma porta própria. A confirmação por
+`EnumJobs` é necessária: a pasta de spool é compartilhada por todas as impressoras do
+sistema, e observar só "apareceu um arquivo novo" confunde atividade de outra
+impressora (ou do próprio Windows) com um trabalho nosso -- foi exatamente isso que
+aconteceu na CI (um PrintTicket XML de outra origem apareceu no meio do teste). **Não**
+usa `FindFirstPrinterChangeNotification`: essa função **não é exposta pelo pywin32**
 (confirmado no código-fonte de `win32print.cpp` -- só há `OpenPrinter`, `EnumJobs`,
 `GetJob`, `StartDocPrinter`, `WritePrinter` etc., nada de notificação de mudança), e
-reescrevê-la via `ctypes` seria mais um componente arriscado sem necessidade, já que
-observar a pasta já funciona.
+reescrevê-la via `ctypes` seria mais um componente arriscado sem necessidade.
 
 Requer conseguir ler `C:\\Windows\\System32\\spool\\PRINTERS\\` (normalmente só
 administradores conseguem) -- o instalador (tarefa #11) provavelmente vai precisar
@@ -72,17 +76,36 @@ def _ler_quando_estavel(arquivo: pathlib.Path, tempo_limite_s: float) -> bytes |
     return None
 
 
-def aguardar_trabalho(tempo_limite_s: float = 30.0) -> bytes | None:
-    """Bloqueia até um novo arquivo .SPL aparecer na pasta de spool do Windows (um
-    trabalho novo, de qualquer impressora do sistema) e devolve os bytes dele assim que
-    ele parar de crescer. Devolve None se o tempo limite passar sem nenhum trabalho
-    novo, ou se o trabalho for concluído rápido demais para ler."""
+def _ids_dos_trabalhos(nome_impressora: str) -> set[int]:
+    import win32print
+
+    hprinter = win32print.OpenPrinter(nome_impressora)
+    try:
+        return {trabalho["JobId"] for trabalho in win32print.EnumJobs(hprinter, 0, 999)}
+    finally:
+        win32print.ClosePrinter(hprinter)
+
+
+def aguardar_trabalho(nome_impressora: str, tempo_limite_s: float = 30.0) -> bytes | None:
+    """Bloqueia até um trabalho novo aparecer na fila **desta impressora** (confirmado
+    por `EnumJobs`) e devolve os bytes dele assim que o arquivo correspondente parar de
+    crescer. Devolve None se o tempo limite passar sem nenhum trabalho novo, ou se ele
+    completar rápido demais para ler.
+
+    Confirmar por `EnumJobs` (não só "apareceu um arquivo novo na pasta de spool") é
+    necessário: a pasta é compartilhada por todas as impressoras do sistema, e
+    atividade alheia (achado na prática, via CI: o próprio Windows gera um PrintTicket
+    XML às vezes) seria confundida com um trabalho nosso."""
     inicio = time.monotonic()
-    existentes = _arquivos_spl()
+    ids_existentes = _ids_dos_trabalhos(nome_impressora)
+    arquivos_existentes = _arquivos_spl()
     while time.monotonic() - inicio < tempo_limite_s:
-        novos = _arquivos_spl() - existentes
-        if novos:
-            return _ler_quando_estavel(next(iter(novos)), tempo_limite_s=10.0)
+        if _ids_dos_trabalhos(nome_impressora) - ids_existentes:
+            novos_arquivos = _arquivos_spl() - arquivos_existentes
+            if novos_arquivos:
+                return _ler_quando_estavel(next(iter(novos_arquivos)), tempo_limite_s=10.0)
+            return None  # o trabalho foi confirmado, mas o arquivo já não está mais lá
+        arquivos_existentes |= _arquivos_spl()  # nunca esquece um arquivo alheio já visto
         time.sleep(INTERVALO_DE_VERIFICACAO)
     return None
 

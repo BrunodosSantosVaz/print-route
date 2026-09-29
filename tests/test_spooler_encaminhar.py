@@ -61,7 +61,7 @@ class CapturarEEncaminhar(unittest.TestCase):
 
         thread = threading.Thread(target=_imprimir_daqui_a_pouco)
         thread.start()
-        capturado = encaminhar.aguardar_trabalho(tempo_limite_s=20)
+        capturado = encaminhar.aguardar_trabalho(gerenciar.NOME_IMPRESSORA, tempo_limite_s=20)
         thread.join(timeout=5)
         if erro_na_thread:
             raise erro_na_thread[0]
@@ -87,7 +87,7 @@ class CapturarEEncaminhar(unittest.TestCase):
         self.assertEqual(capturado, dados)
 
     def test_aguardar_trabalho_sem_nada_devolve_none(self):
-        self.assertIsNone(encaminhar.aguardar_trabalho(tempo_limite_s=2))
+        self.assertIsNone(encaminhar.aguardar_trabalho(gerenciar.NOME_IMPRESSORA, tempo_limite_s=2))
 
     def test_encaminhar_bytes_nao_lanca_erro(self):
         encaminhar.encaminhar_bytes(gerenciar.NOME_IMPRESSORA, b"conteudo de teste do encaminhamento")
