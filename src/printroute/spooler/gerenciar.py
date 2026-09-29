@@ -13,6 +13,7 @@ Ver AGENTS.md, seção "Arquitetura de captura de impressão", e a tarefa #5 do 
 """
 import base64
 import subprocess
+import time
 
 NOME_IMPRESSORA = "PrintRoute"
 PASTA_DADOS = r"C:\ProgramData\PrintRoute"
@@ -106,9 +107,16 @@ def instalar() -> None:
 
 def desinstalar() -> None:
     """Remove a impressora e a porta PrintRoute. Não falha se algum dos dois já não
-    existir (idempotente)."""
+    existir (idempotente). Tenta remover a porta algumas vezes: o spooler pode levar um
+    instante para soltá-la depois de remover a impressora que a usava (confirmado na
+    CI: a primeira tentativa, logo após Remove-Printer, às vezes não é suficiente)."""
     _powershell(f"Remove-Printer -Name '{NOME_IMPRESSORA}' -ErrorAction SilentlyContinue")
-    _powershell(f"Remove-PrinterPort -Name '{CAMINHO_PORTA}' -ErrorAction SilentlyContinue")
+    for tentativa in range(5):
+        if not porta_existe():
+            return
+        if tentativa:
+            time.sleep(0.5)
+        _powershell(f"Remove-PrinterPort -Name '{CAMINHO_PORTA}' -ErrorAction SilentlyContinue")
 
 
 def main() -> None:
