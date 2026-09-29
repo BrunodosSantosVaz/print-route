@@ -45,13 +45,21 @@ class CapturarEEncaminhar(unittest.TestCase):
 
     def test_aguardar_trabalho_captura_os_bytes_enviados(self):
         dados = b"Teste do PrintRoute: " + b"x" * 500
+        erro_na_thread = []
 
         def _imprimir_daqui_a_pouco():
-            time.sleep(1)
-            _imprimir_bruto(gerenciar.NOME_IMPRESSORA, dados)
+            try:
+                time.sleep(1)
+                _imprimir_bruto(gerenciar.NOME_IMPRESSORA, dados)
+            except Exception as erro:  # precisa chegar até a thread principal, não sumir na thread
+                erro_na_thread.append(erro)
 
-        threading.Thread(target=_imprimir_daqui_a_pouco, daemon=True).start()
+        thread = threading.Thread(target=_imprimir_daqui_a_pouco)
+        thread.start()
         capturado = encaminhar.aguardar_trabalho(tempo_limite_s=20)
+        thread.join(timeout=5)
+        if erro_na_thread:
+            raise erro_na_thread[0]
         self.assertEqual(capturado, dados)
 
     def test_aguardar_trabalho_sem_nada_devolve_none(self):
