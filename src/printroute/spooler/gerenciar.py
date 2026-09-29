@@ -106,17 +106,26 @@ def instalar() -> None:
 
 
 def desinstalar() -> None:
-    """Remove a impressora e a porta PrintRoute. Não falha se algum dos dois já não
-    existir (idempotente). Tenta remover a porta algumas vezes: o spooler pode levar um
-    instante para soltá-la depois de remover a impressora que a usava (confirmado na
-    CI: a primeira tentativa, logo após Remove-Printer, às vezes não é suficiente)."""
+    """Remove a impressora e a porta PrintRoute. Não falha se nenhuma das duas existir
+    (idempotente). Tenta remover a porta algumas vezes: o spooler pode levar um instante
+    para soltá-la depois de remover a impressora que a usava (confirmado na CI: a
+    primeira tentativa, logo após Remove-Printer, às vezes não é suficiente). Dentro do
+    loop, a chamada NÃO silencia erro: só entra aqui quando porta_existe() já confirmou
+    que há algo de verdade para remover, então uma falha real deve aparecer, não ser
+    escondida."""
     _powershell(f"Remove-Printer -Name '{NOME_IMPRESSORA}' -ErrorAction SilentlyContinue")
-    for tentativa in range(5):
+    ultimo_erro: ErroDoPowerShell | None = None
+    for tentativa in range(10):
         if not porta_existe():
             return
         if tentativa:
-            time.sleep(0.5)
-        _powershell(f"Remove-PrinterPort -Name '{CAMINHO_PORTA}' -ErrorAction SilentlyContinue")
+            time.sleep(1)
+        try:
+            _powershell(f"Remove-PrinterPort -Name '{CAMINHO_PORTA}'")
+        except ErroDoPowerShell as erro:
+            ultimo_erro = erro
+    if ultimo_erro is not None:
+        raise ultimo_erro
 
 
 def main() -> None:
