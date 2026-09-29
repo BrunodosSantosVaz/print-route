@@ -17,18 +17,23 @@ NOME_DRIVER = "Generic / Text Only"
 
 
 class ErroDoPowerShell(RuntimeError):
-    """Um cmdlet do PowerShell terminou com erro; a mensagem traz o stderr (ou o stdout,
-    se o stderr vier vazio)."""
+    """Um cmdlet do PowerShell terminou com erro; a mensagem traz o código de saída e o
+    conteúdo (repr, para não esconder saída vazia/só espaços) de stdout e stderr."""
 
 
 def _powershell(comando: str) -> str:
     resultado = subprocess.run(
-        ["powershell", "-NoProfile", "-NonInteractive", "-Command", comando],
+        # -ExecutionPolicy Bypass: sem isso, o carregamento automático do módulo
+        # PrintManagement (um módulo de script, não binário) pode ser bloqueado pela
+        # política de execução do Windows, mesmo passando -Command (não -File).
+        ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", comando],
         capture_output=True,
         text=True,
     )
     if resultado.returncode != 0:
-        raise ErroDoPowerShell(resultado.stderr.strip() or resultado.stdout.strip())
+        raise ErroDoPowerShell(
+            f"codigo de saida {resultado.returncode}; stdout={resultado.stdout!r}; stderr={resultado.stderr!r}"
+        )
     return resultado.stdout.strip()
 
 
