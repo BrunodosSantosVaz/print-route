@@ -55,9 +55,11 @@ Consulte **sempre** o `pyproject.toml` antes de assumir qualquer coisa sobre o p
   lugar, e nunca a altere à mão: é a esteira que sobe a versão ao integrar uma release.
 - **Estilo e qualidade**: a configuração do Ruff (`[tool.ruff]`). Rode `uvx ruff check .` no que você mexer.
 - **Dependências**: `pywin32` (só Windows, `sys_platform == 'win32'`), usado em
-  `spooler/encaminhar.py` (`win32print`: `OpenPrinter`, `StartDocPrinter`, `WritePrinter` etc.).
-  `spooler/gerenciar.py` continua só com cmdlets do PowerShell via `subprocess`, sem pywin32. CI roda
-  `pip install -e .` antes dos testes nos jobs `check`/`compat` (windows-latest). A dependência de
+  `spooler/encaminhar.py` (`win32print`: `OpenPrinter`, `StartDocPrinter`, `WritePrinter`, `EnumJobs`,
+  `EnumPrinters` etc.) e em `ui/configuracoes.py`. `pystray` + `Pillow` (ícone da bandeja,
+  `ui/bandeja.py`) -- cross-platform, sem marcador de SO (mas só usados de fato em código Windows-only).
+  `spooler/gerenciar.py` e `inicializacao.py` continuam só com `subprocess`/`winreg`, sem pywin32. CI
+  roda `pip install -e .` antes dos testes nos jobs `check`/`compat` (windows-latest). A dependência de
   build (o PyInstaller) fica **só** no `requirements-build.txt`. Não a duplique no `pyproject.toml`.
 - Se precisar de uma configuração nova de ferramenta, ela vai no `pyproject.toml`, e não em arquivos soltos.
 
@@ -82,7 +84,9 @@ A saída do compilador vai para `build-local/`, que é ignorada pelo Git. Apague
 | `src/printroute/spooler/` | Interação com o spooler: `gerenciar.py` (instala/remove a impressora, via PowerShell), `encaminhar.py` (captura pela pasta de spool + reenvio bruto, via `pywin32`). Testes só rodam no Windows (`check`/`compat` na CI). |
 | `src/printroute/configuracao.py` | Impressoras de destino, cópias e modo (fixo/perguntar), em JSON. Sem dependência do Windows: testes rodam em qualquer sistema. |
 | `src/printroute/selecao.py` | Lógica do seletor de impressora na hora (modo "perguntar"): candidatas, escolha padrão, validação. Sem Tkinter, testável em qualquer sistema. |
-| `src/printroute/ui/` | Telas (Tkinter): `seletor.py` usa `selecao.py`. **Sem teste automatizado** (interface gráfica, precisa de display) -- só a lógica por trás é testada. |
+| `src/printroute/estado.py` | Se o reencaminhamento está ativado/pausado (em memória, menu da bandeja). Testável em qualquer sistema. |
+| `src/printroute/inicializacao.py` | Iniciar o PrintRoute com o Windows (chave Run do Registro, via `winreg`). Testes só rodam no Windows. |
+| `src/printroute/ui/` | Telas (Tkinter/`pystray`): `seletor.py` (usa `selecao.py`), `configuracoes.py` (usa `configuracao.py` e `inicializacao.py`), `bandeja.py` (o ícone e o menu, usa `estado.py`). **Sem teste automatizado** (interface gráfica/bandeja, precisa de display) -- só a lógica por trás é testada. |
 | `tests/` | Testes (`unittest`), inclusive dos scripts da esteira. |
 | `packaging/windows/` | Compilador do `.exe`. |
 | `scripts/processo/` | Configuração do GitHub (labels, painéis, automações). |
