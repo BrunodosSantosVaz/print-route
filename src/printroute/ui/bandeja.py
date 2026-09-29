@@ -23,7 +23,11 @@ def _icone_padrao() -> Image.Image:
     return imagem
 
 
-def criar_icone(estado: EstadoApp) -> pystray.Icon:
+def criar_icone(estado: EstadoApp, ao_sair=lambda: None) -> pystray.Icon:
+    """`ao_sair` é chamado (sem argumentos) quando o usuário escolhe "Sair", além de
+    `icone.stop()` -- usado pelo `__main__.py` de verdade para também parar o laço de
+    observação da impressora, que roda numa thread separada da bandeja."""
+
     def _abrir_configuracoes(icone, item):
         abrir_configuracoes(carregar())
 
@@ -42,6 +46,7 @@ def criar_icone(estado: EstadoApp) -> pystray.Icon:
         )
 
     def _sair(icone, item):
+        ao_sair()
         icone.stop()
 
     menu = pystray.Menu(

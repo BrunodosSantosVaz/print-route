@@ -1,35 +1,42 @@
-"""Ponto de entrada do PrintRoute (Tkinter).
+"""Ponto de entrada do PrintRoute: garante a impressora instalada, mostra o ícone na
+bandeja (em segundo plano, via pystray) e observa a fila da impressora no laço
+principal. O laço de observação fica na thread principal porque é ele quem abre o
+seletor (Tkinter) no modo "perguntar", e Tkinter não é confiável fora da thread
+principal -- ainda não testado numa sessão de desktop de verdade (ver AGENTS.md)."""
+import threading
 
-Ainda não há funcionalidade real: este é o esqueleto que a esteira usa para compilar, testar e lintar
-o projeto antes do primeiro épico (a arquitetura de como interceptar a impressão no Windows) ser
-decidido e implementado. Veja AGENTS.md."""
-import tkinter as tk
-from tkinter import ttk
+from printroute.configuracao import MODO_FIXO, carregar
+from printroute.estado import EstadoApp
+from printroute.spooler import encaminhar, gerenciar
+from printroute.ui import bandeja
+from printroute.ui.seletor import abrir_seletor
 
-from printroute.version import __version__
-
-TITULO_APP = f"PrintRoute v{__version__}"
-
-
-class App(tk.Tk):
-    def __init__(self):
-        super().__init__()
-        self.title(TITULO_APP)
-        self.geometry("480x260")
-        self.minsize(360, 200)
-        corpo = ttk.Frame(self, padding=24)
-        corpo.pack(fill="both", expand=True)
-        ttk.Label(corpo, text=TITULO_APP, font=("Segoe UI", 14, "bold")).pack(anchor="w")
-        ttk.Label(
-            corpo,
-            text="Em desenvolvimento: ainda não reencaminha impressões.\n"
-                 "Veja o progresso em github.com/BrunodosSantosVaz/print-route",
-            justify="left",
-        ).pack(anchor="w", pady=(12, 0))
+_parar = threading.Event()
 
 
-def main():
-    App().mainloop()
+def _observar_e_encaminhar(estado: EstadoApp) -> None:
+    while not _parar.is_set():
+        dados = encaminhar.aguardar_trabalho(gerenciar.NOME_IMPRESSORA, tempo_limite_s=5.0)
+        if dados is None or not estado.ativo:
+            continue
+        config = carregar()
+        if config.modo == MODO_FIXO:
+            encaminhar.encaminhar_para_configuracao(dados, config)
+        else:
+            escolha = abrir_seletor(config)
+            if escolha is not None:
+                encaminhar.encaminhar_escolha(dados, escolha)
+
+
+def main() -> None:
+    gerenciar.instalar()
+    estado = EstadoApp()
+    icone = bandeja.criar_icone(estado, ao_sair=_parar.set)
+    icone.run_detached()
+    try:
+        _observar_e_encaminhar(estado)
+    finally:
+        icone.stop()
 
 
 if __name__ == "__main__":
