@@ -8,6 +8,7 @@ mesmo usado no protótipo da tarefa #4 (poc/), já validado pelo dono; a tarefa 
 
 Ver AGENTS.md, seção "Arquitetura de captura de impressão", e a tarefa #5 do épico #3.
 """
+import base64
 import subprocess
 
 NOME_IMPRESSORA = "PrintRoute"
@@ -15,26 +16,45 @@ PASTA_DADOS = r"C:\ProgramData\PrintRoute"
 CAMINHO_PORTA = PASTA_DADOS + r"\trabalho.spl"
 NOME_DRIVER = "Generic / Text Only"
 
+_MARCADOR_DE_ERRO = "ERRO_POWERSHELL:"
+
 
 class ErroDoPowerShell(RuntimeError):
-    """Um cmdlet do PowerShell terminou com erro; a mensagem traz o código de saída e o
-    conteúdo (repr, para não esconder saída vazia/só espaços) de stdout e stderr."""
+    """Um cmdlet do PowerShell terminou com erro; a mensagem vem de $_.Exception.Message
+    (capturada dentro do próprio script, para não depender de como o processo pai lê o
+    stderr) ou, faltando isso, do código de saída e do repr de stdout/stderr."""
 
 
 def _powershell(comando: str) -> str:
+    # -EncodedCommand (Base64 de UTF-16LE) em vez de -Command com a string crua: evita
+    # qualquer ambiguidade de aspas/pipe ao montar a linha de comando pelo subprocess no
+    # Windows. O try/catch escreve a mensagem de erro no stdout (com um marcador), porque
+    # depender só do stderr do processo mostrou-se pouco confiável na CI (retornava vazio
+    # mesmo com o comando falhando). -ExecutionPolicy Bypass: sem isso, o carregamento
+    # automático do módulo PrintManagement (módulo de script, não binário) pode ser
+    # bloqueado pela política de execução do Windows.
+    script = (
+        "$ErrorActionPreference = 'Stop'\n"
+        "try {\n"
+        f"{comando}\n"
+        "} catch {\n"
+        f"  Write-Output ('{_MARCADOR_DE_ERRO} ' + $_.Exception.Message)\n"
+        "}\n"
+    )
+    codificado = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
     resultado = subprocess.run(
-        # -ExecutionPolicy Bypass: sem isso, o carregamento automático do módulo
-        # PrintManagement (um módulo de script, não binário) pode ser bloqueado pela
-        # política de execução do Windows, mesmo passando -Command (não -File).
-        ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", comando],
+        ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", codificado],
         capture_output=True,
         text=True,
     )
+    saida = resultado.stdout.strip()
+    if saida.startswith(_MARCADOR_DE_ERRO):
+        raise ErroDoPowerShell(saida[len(_MARCADOR_DE_ERRO) :].strip())
     if resultado.returncode != 0:
         raise ErroDoPowerShell(
             f"codigo de saida {resultado.returncode}; stdout={resultado.stdout!r}; stderr={resultado.stderr!r}"
         )
-    return resultado.stdout.strip()
+    return saida
 
 
 def porta_existe() -> bool:
