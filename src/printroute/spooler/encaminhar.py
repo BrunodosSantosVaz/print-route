@@ -34,26 +34,32 @@ def _arquivos_spl() -> set[pathlib.Path]:
         return set()
 
 
-def _ler_quando_estavel(arquivo: pathlib.Path) -> bytes | None:
+def _ler_quando_estavel(arquivo: pathlib.Path, tempo_limite_s: float) -> bytes | None:
+    inicio = time.monotonic()
     tamanho_anterior = -1
     estavel_desde = None
-    while True:
+    while time.monotonic() - inicio < tempo_limite_s:
         try:
             tamanho_atual = arquivo.stat().st_size
         except OSError:
             return None  # o spooler já apagou o arquivo (trabalho concluído rápido demais)
-        if tamanho_atual == tamanho_anterior:
-            if estavel_desde is None:
-                estavel_desde = time.monotonic()
-            elif time.monotonic() - estavel_desde >= PERIODO_DE_ESTABILIDADE:
-                try:
-                    return arquivo.read_bytes()
-                except OSError:
-                    return None
-        else:
-            estavel_desde = None
-        tamanho_anterior = tamanho_atual
+        # Só considera "estável" com tamanho > 0: o arquivo é criado (0 bytes) antes dos
+        # dados serem escritos -- sem esta guarda, um 0 que "não muda" por
+        # PERIODO_DE_ESTABILIDADE é lido como um trabalho vazio (bug real, achado pela CI).
+        if tamanho_atual > 0:
+            if tamanho_atual == tamanho_anterior:
+                if estavel_desde is None:
+                    estavel_desde = time.monotonic()
+                elif time.monotonic() - estavel_desde >= PERIODO_DE_ESTABILIDADE:
+                    try:
+                        return arquivo.read_bytes()
+                    except OSError:
+                        return None
+            else:
+                estavel_desde = None
+            tamanho_anterior = tamanho_atual
         time.sleep(INTERVALO_DE_VERIFICACAO)
+    return None
 
 
 def aguardar_trabalho(tempo_limite_s: float = 30.0) -> bytes | None:
@@ -66,7 +72,7 @@ def aguardar_trabalho(tempo_limite_s: float = 30.0) -> bytes | None:
     while time.monotonic() - inicio < tempo_limite_s:
         novos = _arquivos_spl() - existentes
         if novos:
-            return _ler_quando_estavel(next(iter(novos)))
+            return _ler_quando_estavel(next(iter(novos)), tempo_limite_s=10.0)
         time.sleep(INTERVALO_DE_VERIFICACAO)
     return None
 
