@@ -111,24 +111,24 @@ def desinstalar() -> None:
     para soltá-la depois de remover a impressora que a usava (confirmado na CI: a
     primeira tentativa, logo após Remove-Printer, às vezes não é suficiente).
 
-    `Remove-PrinterPort -Name '<caminho>'` com o nome repassado como string dá
-    "Names may not contain ',' or '\\' characters" mesmo o caminho sendo um nome de
-    porta válido (confirmado na CI) -- um problema conhecido desse cmdlet com nomes que
-    têm barra invertida. O contorno é passar o OBJETO da porta pelo pipeline
-    (`Get-PrinterPort | Remove-PrinterPort`) em vez de repetir o nome."""
+    A remoção da porta usa `printui.dll,PrintUIEntry` (via rundll32), não o cmdlet
+    `Remove-PrinterPort`: tanto `-Name '<caminho>'` quanto `Get-PrinterPort | Remove-PrinterPort`
+    dão "Names may not contain ',' or '\\' characters" para um nome de porta com barra
+    invertida (confirmado na CI nos dois formatos) -- uma limitação conhecida desse
+    cmdlet. O `printui.dll` é a forma antiga, mas não tem essa validação."""
     _powershell(f"Remove-Printer -Name '{NOME_IMPRESSORA}' -ErrorAction SilentlyContinue")
-    ultimo_erro: ErroDoPowerShell | None = None
     for tentativa in range(10):
         if not porta_existe():
             return
         if tentativa:
             time.sleep(1)
-        try:
-            _powershell(f"Get-PrinterPort -Name '{CAMINHO_PORTA}' | Remove-PrinterPort")
-        except ErroDoPowerShell as erro:
-            ultimo_erro = erro
-    if ultimo_erro is not None:
-        raise ultimo_erro
+        subprocess.run(
+            ["rundll32", "printui.dll,PrintUIEntry", "/dl", "/n", CAMINHO_PORTA, "/q"],
+            capture_output=True,
+            text=True,
+        )
+    if porta_existe():
+        raise ErroDoPowerShell(f"Não consegui remover a porta '{CAMINHO_PORTA}' depois de várias tentativas.")
 
 
 def main() -> None:
