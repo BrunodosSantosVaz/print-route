@@ -81,6 +81,8 @@ A saída do compilador vai para `build-local/`, que é ignorada pelo Git. Apague
 | `src/printroute/` | O programa (pacote). Mexer aqui **muda o executável** e exige uma versão nova. |
 | `src/printroute/spooler/` | Interação com o spooler: `gerenciar.py` (instala/remove a impressora, via PowerShell), `encaminhar.py` (captura pela pasta de spool + reenvio bruto, via `pywin32`). Testes só rodam no Windows (`check`/`compat` na CI). |
 | `src/printroute/configuracao.py` | Impressoras de destino, cópias e modo (fixo/perguntar), em JSON. Sem dependência do Windows: testes rodam em qualquer sistema. |
+| `src/printroute/selecao.py` | Lógica do seletor de impressora na hora (modo "perguntar"): candidatas, escolha padrão, validação. Sem Tkinter, testável em qualquer sistema. |
+| `src/printroute/ui/` | Telas (Tkinter): `seletor.py` usa `selecao.py`. **Sem teste automatizado** (interface gráfica, precisa de display) -- só a lógica por trás é testada. |
 | `tests/` | Testes (`unittest`), inclusive dos scripts da esteira. |
 | `packaging/windows/` | Compilador do `.exe`. |
 | `scripts/processo/` | Configuração do GitHub (labels, painéis, automações). |

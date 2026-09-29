@@ -26,6 +26,7 @@ import pathlib
 import time
 
 from printroute.configuracao import Configuracao
+from printroute.selecao import EscolhaDoUsuario
 
 PASTA_SPOOL = pathlib.Path(r"C:\Windows\System32\spool\PRINTERS")
 INTERVALO_DE_VERIFICACAO = 0.05  # segundos entre cada checagem da pasta/arquivo
@@ -108,7 +109,14 @@ def encaminhar_bytes(nome_impressora_destino: str, dados: bytes, nome_trabalho: 
 def encaminhar_para_configuracao(dados: bytes, config: Configuracao) -> None:
     """Encaminha os bytes capturados para cada impressora do modo fixo (`config.impressoras`),
     respeitando a quantidade de cópias de cada uma -- tarefa #8. Não se aplica ao modo
-    "perguntar" (o destino ali vem do seletor, não da lista fixa; ver tarefa #9)."""
+    "perguntar" (o destino ali vem do seletor: ver `encaminhar_escolha`, tarefa #9)."""
     for destino in config.impressoras:
         for _ in range(destino.copias):
             encaminhar_bytes(destino.nome, dados)
+
+
+def encaminhar_escolha(dados: bytes, escolha: EscolhaDoUsuario) -> None:
+    """Encaminha os bytes capturados para a impressora escolhida no seletor (modo
+    "perguntar"), pelo número de cópias que o usuário pediu ali -- tarefa #9."""
+    for _ in range(escolha.copias):
+        encaminhar_bytes(escolha.impressora, dados)

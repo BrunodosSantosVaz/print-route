@@ -13,7 +13,7 @@ import unittest
 from unittest import mock
 
 import _caminho  # noqa: F401
-from printroute import configuracao
+from printroute import configuracao, selecao
 from printroute.spooler import encaminhar, gerenciar
 
 _TEM_WINDOWS = sys.platform == "win32"
@@ -116,6 +116,26 @@ class EncaminharParaConfiguracao(unittest.TestCase):
         with mock.patch("printroute.spooler.encaminhar.encaminhar_bytes") as chamada:
             encaminhar.encaminhar_para_configuracao(b"dados", configuracao.Configuracao())
         chamada.assert_not_called()
+
+
+class EncaminharEscolha(unittest.TestCase):
+    def test_encaminha_o_numero_de_copias_da_escolha(self):
+        escolha = selecao.EscolhaDoUsuario(impressora="Epson L3250 (Recepção)", copias=2)
+        with mock.patch("printroute.spooler.encaminhar.encaminhar_bytes") as chamada:
+            encaminhar.encaminhar_escolha(b"dados do trabalho", escolha)
+        self.assertEqual(
+            chamada.call_args_list,
+            [
+                mock.call("Epson L3250 (Recepção)", b"dados do trabalho"),
+                mock.call("Epson L3250 (Recepção)", b"dados do trabalho"),
+            ],
+        )
+
+    def test_uma_copia_chama_uma_vez(self):
+        escolha = selecao.EscolhaDoUsuario(impressora="HP", copias=1)
+        with mock.patch("printroute.spooler.encaminhar.encaminhar_bytes") as chamada:
+            encaminhar.encaminhar_escolha(b"dados", escolha)
+        chamada.assert_called_once_with("HP", b"dados")
 
 
 if __name__ == "__main__":
