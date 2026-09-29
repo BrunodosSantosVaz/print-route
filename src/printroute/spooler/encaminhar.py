@@ -16,11 +16,16 @@ observar a pasta já funciona.
 Requer conseguir ler `C:\\Windows\\System32\\spool\\PRINTERS\\` (normalmente só
 administradores conseguem) -- o instalador (tarefa #11) provavelmente vai precisar
 rodar o PrintRoute elevado por causa disso.
+
+`win32print` é importado dentro de `encaminhar_bytes`, não no topo do arquivo: assim o
+módulo inteiro (inclusive `encaminhar_para_configuracao`, que só orquestra chamadas)
+importa em qualquer sistema, e os testes que usam mock em vez de uma impressora de
+verdade rodam também no Linux da CI, sem precisar do runner Windows.
 """
 import pathlib
 import time
 
-import win32print
+from printroute.configuracao import Configuracao
 
 PASTA_SPOOL = pathlib.Path(r"C:\Windows\System32\spool\PRINTERS")
 INTERVALO_DE_VERIFICACAO = 0.05  # segundos entre cada checagem da pasta/arquivo
@@ -83,6 +88,8 @@ def aguardar_trabalho(tempo_limite_s: float = 30.0) -> bytes | None:
 
 def encaminhar_bytes(nome_impressora_destino: str, dados: bytes, nome_trabalho: str = "PrintRoute") -> None:
     """Envia os bytes brutos para a impressora de destino, sem nenhum processamento."""
+    import win32print
+
     hprinter = win32print.OpenPrinter(nome_impressora_destino)
     try:
         win32print.StartDocPrinter(hprinter, 1, (nome_trabalho, None, "RAW"))
@@ -96,3 +103,12 @@ def encaminhar_bytes(nome_impressora_destino: str, dados: bytes, nome_trabalho: 
             win32print.EndDocPrinter(hprinter)
     finally:
         win32print.ClosePrinter(hprinter)
+
+
+def encaminhar_para_configuracao(dados: bytes, config: Configuracao) -> None:
+    """Encaminha os bytes capturados para cada impressora do modo fixo (`config.impressoras`),
+    respeitando a quantidade de cópias de cada uma -- tarefa #8. Não se aplica ao modo
+    "perguntar" (o destino ali vem do seletor, não da lista fixa; ver tarefa #9)."""
+    for destino in config.impressoras:
+        for _ in range(destino.copias):
+            encaminhar_bytes(destino.nome, dados)
