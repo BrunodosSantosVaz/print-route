@@ -21,6 +21,16 @@ class CarregarESalvar(unittest.TestCase):
         self.assertEqual(lido.impressoras, [])
         self.assertEqual(lido.copias_no_seletor, 1)
 
+    def test_carregar_tolera_bom_utf8(self):
+        # Bug real, achado ao vivo: Notepad ("UTF-8") e o PowerShell
+        # (Set-Content -Encoding UTF8) gravam um BOM no início do arquivo -- "utf-8"
+        # puro não tolera isso (json.JSONDecodeError), derrubando o laço de captura
+        # inteiro.
+        caminho = self._caminho_temp()
+        caminho.write_bytes(b"\xef\xbb\xbf" + b'{"modo": "fixo", "impressoras": [], "copias_no_seletor": 1}')
+        lido = configuracao.carregar(caminho)
+        self.assertEqual(lido, configuracao.Configuracao())
+
     def test_salvar_e_carregar_preserva_os_dados(self):
         caminho = self._caminho_temp()
         original = configuracao.Configuracao(
