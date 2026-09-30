@@ -21,4 +21,5 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 ### Corrigido
 - PyInstaller não empacota win32timezone: captura de impressão trava com ModuleNotFoundError (#24)
 - Configurações abre janela repetida (e quebra o seletor): Tkinter criado fora da thread principal (#26)
+- Laço de captura quebra silenciosamente: config.json com BOM e qualquer erro inesperado derrubam o app todo (#28)
 
