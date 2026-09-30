@@ -3,7 +3,7 @@
 # candidata, confere o hash e cria a tag + GitHub Release vX.Y.Z com esse MESMO binario (SHA-256
 # identico) e as notas da secao da versao no CHANGELOG. O executavel fica so na Release: nada e
 # gravado no repositorio (o arquivo e preparado numa pasta temporaria).
-# Arquivo da Release: PrintRoute-vX.Y.Z-windows-x64.exe + SHA256SUMS.txt
+# Arquivo da Release: PrintRoute-Setup-vX.Y.Z-windows-x64.exe (instalador, Inno Setup) + SHA256SUMS.txt
 # Deixa notas.md no diretorio de trabalho (usado por anunciar-release.sh).
 #
 # Variaveis: RC_TAG, GH_TOKEN, GITHUB_REPOSITORY, TARGET_SHA (commit da tag; padrao HEAD),
@@ -23,8 +23,8 @@ if gh release view "$tag" >/dev/null 2>&1; then
   saida "nova=false"; saida "tag=$tag"; exit 0
 fi
 
-rc_exe="PrintRoute-${rc}-windows-x64.exe"
-exe="PrintRoute-${tag}-windows-x64.exe"
+rc_exe="PrintRoute-Setup-${rc}-windows-x64.exe"
+exe="PrintRoute-Setup-${tag}-windows-x64.exe"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 baixado="$tmp/baixado" pub="$tmp/publicar"

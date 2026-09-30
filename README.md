@@ -13,12 +13,13 @@ pré-configuradas, ou escolhidas na hora, num seletor. Pensado para sistemas que
 
 ## Estado atual
 
-**Em desenvolvimento inicial, sem release funcional ainda.** Este repositório traz a esteira completa
-de desenvolvimento e um esqueleto do programa (uma janela Tkinter vazia), mas **ainda não reencaminha
-nenhuma impressão**. A arquitetura de captura já foi decidida (sem port monitor nativo, sem RedMon —
-veja [AGENTS.md](AGENTS.md#arquitetura-de-captura-de-impressão-decidida-em-29092026)) e está sendo
-implementada e validada no [épico #3](https://github.com/BrunodosSantosVaz/print-route/issues/3). Sem
-executável publicado nas Releases por enquanto.
+**Em desenvolvimento, sem release publicada ainda.** A captura, o reencaminhamento (uma ou mais
+impressoras, com cópias), o seletor na hora, a configuração e o ícone na bandeja já existem e são
+testados a cada PR (veja [épico #3](https://github.com/BrunodosSantosVaz/print-route/issues/3)), mas
+**ainda não foram testados numa sessão de desktop real** — só por CI, que não tem desktop interativo.
+O instalador Windows (Inno Setup) está sendo construído agora; até ele existir e a primeira versão ser
+publicada, não há nada nas [Releases](https://github.com/BrunodosSantosVaz/print-route/releases) para
+baixar.
 
 ## Para que serve
 
@@ -42,11 +43,18 @@ primeira funcionalidade de reencaminhamento existir.
 
 ```
 print-route/
-├── src/printroute/                Código-fonte (pacote Python)
-│   ├── __main__.py                 Ponto de entrada (python -m printroute)
-│   └── version.py                  Versão do programa
+├── src/printroute/                 Código-fonte (pacote Python)
+│   ├── __main__.py                  Ponto de entrada (python -m printroute); liga tudo abaixo
+│   ├── version.py                   Versão do programa
+│   ├── configuracao.py              Impressoras de destino, cópias e modo (JSON)
+│   ├── selecao.py                   Lógica do seletor de impressora na hora
+│   ├── estado.py                    Reencaminhamento ativado/pausado (em memória)
+│   ├── inicializacao.py             Iniciar com o Windows (Registro, winreg)
+│   ├── spooler/                     gerenciar.py (instala/remove a impressora), encaminhar.py (captura + reenvio)
+│   └── ui/                          Telas: seletor.py, configuracoes.py, bandeja.py (ícone + menu)
 ├── tests/                          Testes automatizados (unittest), inclusive dos scripts da esteira
-├── packaging/windows/build_exe.py  Compila o .exe do Windows (as versões oficiais saem do CI)
+├── packaging/windows/               build_exe.py (compila o .exe) e build_installer.py + instalador.iss
+│                                    (empacotam o instalador Windows, via Inno Setup); saem do CI
 ├── scripts/processo/               Configuração do GitHub (labels, painéis, automações)
 ├── docs/processo.md                Processo de desenvolvimento completo
 ├── .github/                        Workflows (CI, build, release), modelos de issue/PR, automações
@@ -78,17 +86,22 @@ uvx ruff check .          # estilo e qualidade (regras em pyproject.toml); ou: p
 
 Roda a cada pull request no GitHub Actions (Windows), junto com o Ruff.
 
-### Gerando o executável
+### Gerando o instalador
+
+Requer também o [Inno Setup 6](https://jrsoftware.org/isinfo.php) (`ISCC.exe` em PATH, ou em
+`C:\Program Files (x86)\Inno Setup 6\`; `choco install innosetup` instala).
 
 ```powershell
 pip install -r requirements-build.txt
-python packaging\windows\build_exe.py
+python packaging\windows\build_installer.py
 ```
 
-O script compila com PyInstaller (fora do repositório, sem deixar `build/` ou `.spec`), embute os
-metadados de versão no `.exe` e grava o resultado, com o `SHA256SUMS.txt`, em `build-local/` (ignorada
-pelo Git). A versão vem de `src/printroute/version.py`. Os executáveis **oficiais** (candidatas e
-produção) são gerados pelo CI e publicados nas Releases, não à mão.
+O script compila com PyInstaller (fora do repositório, sem deixar `build/` ou `.spec`) e empacota o
+resultado com o Inno Setup (`packaging/windows/instalador.iss`), gravando o instalador e o
+`SHA256SUMS.txt` em `build-local/` (ignorada pelo Git). A versão vem de `src/printroute/version.py`.
+Os instaladores **oficiais** (candidatas e produção) são gerados pelo CI e publicados nas Releases,
+não à mão. `python packaging\windows\build_exe.py` sozinho ainda compila só o `.exe` puro (sem
+instalador), útil para testar rápido sem empacotar.
 
 ## Versões e releases
 

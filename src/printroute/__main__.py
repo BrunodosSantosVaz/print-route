@@ -2,9 +2,15 @@
 bandeja (em segundo plano, via pystray) e observa a fila da impressora no laço
 principal. O laço de observação fica na thread principal porque é ele quem abre o
 seletor (Tkinter) no modo "perguntar", e Tkinter não é confiável fora da thread
-principal -- ainda não testado numa sessão de desktop de verdade (ver AGENTS.md)."""
+principal -- ainda não testado numa sessão de desktop de verdade (ver AGENTS.md).
+
+Com o argumento `--desinstalar` (usado pelo desinstalador do instalador, tarefa #11,
+antes de apagar os arquivos): só remove a impressora e a entrada de início automático,
+sem abrir a bandeja nem o laço de observação."""
+import sys
 import threading
 
+from printroute import inicializacao
 from printroute.configuracao import MODO_FIXO, carregar
 from printroute.estado import EstadoApp
 from printroute.spooler import encaminhar, gerenciar
@@ -12,6 +18,11 @@ from printroute.ui import bandeja
 from printroute.ui.seletor import abrir_seletor
 
 _parar = threading.Event()
+
+
+def _desinstalar() -> None:
+    gerenciar.desinstalar()
+    inicializacao.desabilitar()
 
 
 def _observar_e_encaminhar(estado: EstadoApp) -> None:
@@ -29,6 +40,9 @@ def _observar_e_encaminhar(estado: EstadoApp) -> None:
 
 
 def main() -> None:
+    if len(sys.argv) > 1 and sys.argv[1] == "--desinstalar":
+        _desinstalar()
+        return
     gerenciar.instalar()
     estado = EstadoApp()
     icone = bandeja.criar_icone(estado, ao_sair=_parar.set)
