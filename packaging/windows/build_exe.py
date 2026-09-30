@@ -80,6 +80,13 @@ def compilar(destino_exe):
             sys.executable, "-m", "PyInstaller", "--onefile", "--windowed", "--clean", "--noconfirm",
             "--name", NOME, "--version-file", arquivo_versao_windows(tmp),
             "--distpath", os.path.join(tmp, "dist"), "--workpath", os.path.join(tmp, "work"), "--specpath", tmp,
+            # win32timezone: nenhum código do PrintRoute o importa direto -- é usado por baixo dos
+            # panos pelo próprio pywin32 (win32com/pythoncom) quando o spooler formata data/hora de
+            # trabalhos de impressão (EnumJobs/GetJob). O PyInstaller não detecta essa dependência
+            # sozinho (hidden import clássico do pywin32); sem isso o .exe quebra com
+            # "ModuleNotFoundError: No module named 'win32timezone'" bem no meio da captura, só em
+            # tempo de execução (achado testando o instalador de verdade, a CI não roda a captura).
+            "--hidden-import", "win32timezone",
             "--paths", SRC, os.path.join(SRC, "printroute", "__main__.py"),
         ]
         print(" ".join(cmd))

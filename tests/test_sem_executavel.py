@@ -51,7 +51,7 @@ class TocaExecutavel(unittest.TestCase):
 
     def test_docs_testes_e_automacao_nao_tocam(self):
         self.assertEqual(self.rodar(["README.md", "docs/processo.md", "tests/test_x.py", ".github/workflows/ci.yml",
-                                     ".github/scripts/kanban.sh", "packaging/windows/build_exe.py", "exemplos/a.rem"]), 1)
+                                     ".github/scripts/kanban.sh", "exemplos/a.rem"]), 1)
 
     def test_codigo_do_programa_toca(self):
         self.assertEqual(self.rodar(["README.md", "src/printroute/__main__.py"]), 0)
@@ -60,8 +60,15 @@ class TocaExecutavel(unittest.TestCase):
     def test_dependencias_empacotadas_tocam(self):
         self.assertEqual(self.rodar(["docs/a.md", "requirements-build.txt"]), 0)
 
+    def test_compilador_e_instalador_tocam(self):
+        # Bug real (tarefa #24): um PR que so mexia em build_exe.py foi marcado sem-executavel
+        # e pulou a homologacao inteira, mesmo mudando o .exe de verdade.
+        self.assertEqual(self.rodar(["packaging/windows/build_exe.py"]), 0)
+        self.assertEqual(self.rodar(["docs/a.md", "packaging/windows/instalador.iss"]), 0)
+
     def test_nome_parecido_nao_conta(self):
-        self.assertEqual(self.rodar(["docs/src/nota.md", "requirements-build.txt.bak", "tests/src/x.py"]), 1)
+        self.assertEqual(self.rodar(["docs/src/nota.md", "requirements-build.txt.bak", "tests/src/x.py",
+                                     "packaging/windows/build_exe.py.bak"]), 1)
 
     def test_lista_vazia_sem_informacao(self):
         self.assertEqual(self.rodar([]), 2)
