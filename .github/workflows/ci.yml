@@ -60,6 +60,11 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r requirements-build.txt
+      # Sem isso, o PyInstaller só avisa (não falha) que pywin32/pystray/Pillow não foram
+      # encontrados e gera um .exe faltando módulos -- quebra só em tempo de execução, não
+      # aqui. Achado ao vivo (tarefa #24: ModuleNotFoundError: win32timezone escapou deste
+      # job exatamente por essa razão).
+      - run: pip install -e .
       - name: Instalar o Inno Setup
         run: choco install innosetup -y --no-progress
       - name: Compilar e empacotar o instalador
