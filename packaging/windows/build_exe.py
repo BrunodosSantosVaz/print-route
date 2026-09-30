@@ -71,13 +71,10 @@ def sha256(caminho):
     return h.hexdigest()
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Compila o PrintRoute e guarda o .exe com o hash SHA-256.")
-    parser.add_argument("--saida", help="pasta de destino (padrão: build-local/)")
-    parser.add_argument("--rc", type=int, help="número da release candidata (vira -rc.N no nome do arquivo)")
-    args = parser.parse_args()
-    destino_pasta = os.path.abspath(args.saida) if args.saida else os.path.join(RAIZ, "build-local")
-    nome_final = nome_do_arquivo(args.rc)
+def compilar(destino_exe):
+    """Roda o PyInstaller e copia o resultado para `destino_exe` (caminho completo,
+    com nome). Reaproveitado por build_installer.py (tarefa #11), que precisa do .exe
+    puro (sem o sufixo -rc.N/versão do nome público) para embutir no instalador."""
     with tempfile.TemporaryDirectory(prefix="printroute-build-") as tmp:
         cmd = [
             sys.executable, "-m", "PyInstaller", "--onefile", "--windowed", "--clean", "--noconfirm",
@@ -88,12 +85,23 @@ def main():
         print(" ".join(cmd))
         subprocess.run(cmd, check=True, cwd=SRC)
         gerado = os.path.join(tmp, "dist", NOME + ".exe")
-        os.makedirs(destino_pasta, exist_ok=True)
-        for antigo in os.listdir(destino_pasta):  # nunca deixar .exe/hash de builds anteriores misturados
-            if antigo.endswith(".exe") or antigo == "SHA256SUMS.txt":
-                os.remove(os.path.join(destino_pasta, antigo))
-        final = os.path.join(destino_pasta, nome_final)
-        shutil.copyfile(gerado, final)
+        os.makedirs(os.path.dirname(destino_exe), exist_ok=True)
+        shutil.copyfile(gerado, destino_exe)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Compila o PrintRoute e guarda o .exe com o hash SHA-256.")
+    parser.add_argument("--saida", help="pasta de destino (padrão: build-local/)")
+    parser.add_argument("--rc", type=int, help="número da release candidata (vira -rc.N no nome do arquivo)")
+    args = parser.parse_args()
+    destino_pasta = os.path.abspath(args.saida) if args.saida else os.path.join(RAIZ, "build-local")
+    nome_final = nome_do_arquivo(args.rc)
+    os.makedirs(destino_pasta, exist_ok=True)
+    for antigo in os.listdir(destino_pasta):  # nunca deixar .exe/hash de builds anteriores misturados
+        if antigo.endswith(".exe") or antigo == "SHA256SUMS.txt":
+            os.remove(os.path.join(destino_pasta, antigo))
+    final = os.path.join(destino_pasta, nome_final)
+    compilar(final)
     with open(os.path.join(destino_pasta, "SHA256SUMS.txt"), "w", encoding="utf-8", newline="\n") as f:
         f.write(f"{sha256(final)}  {nome_final}\n")
     print(f"\nOK: {os.path.relpath(final, RAIZ)}  ({os.path.getsize(final) / 1e6:.1f} MB)")

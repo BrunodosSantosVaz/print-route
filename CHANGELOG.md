@@ -5,3 +5,16 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 [SemVer](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
+
+## [0.1.0] - 2026-09-30
+
+### Adicionado
+- Registrar o PrintRoute como impressora no Windows (porta + impressora, instalação e remoção) (#5)
+- Encaminhar o trabalho recebido para uma impressora real configurada (caminho mais simples: 1 impressora fixa, 1 cópia) (#6)
+- Configuração local (arquivo/registro): impressoras de destino, número de cópias, modo seletor-na-hora (#7)
+- Encaminhar para mais de uma impressora e com mais de uma cópia (#8)
+- Seletor de impressora na hora (diálogo ao chegar um trabalho, quando configurado) (#9)
+- Ícone na bandeja do sistema com o painel de configuração (#10)
+- Instalador Windows (empacota o executável, registra a impressora, inicia o painel da bandeja com o Windows) (#11)
+- Desinstalador padrão (Configurações → Aplicativos / Programas e Recursos), removendo porta, impressora, início automático e arquivos (#12)
+
