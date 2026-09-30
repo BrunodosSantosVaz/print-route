@@ -6,7 +6,9 @@ sentido no Windows (spooler de verdade), roda nos jobs "check" e "compat" da CI
 (windows-latest); no resto, pula. `EncaminharParaConfiguracao` usa mock em vez de uma
 impressora de verdade (só orquestração: quantas vezes e para quem `encaminhar_bytes` é
 chamada) e roda em qualquer sistema, sem precisar do runner Windows."""
+import os
 import sys
+import tempfile
 import threading
 import time
 import unittest
@@ -91,6 +93,94 @@ class CapturarEEncaminhar(unittest.TestCase):
 
     def test_encaminhar_bytes_nao_lanca_erro(self):
         encaminhar.encaminhar_bytes(gerenciar.NOME_IMPRESSORA, b"conteudo de teste do encaminhamento")
+
+
+class DetectarEEscolherCaminho(unittest.TestCase):
+    """Bug real, achado ao vivo (tarefa #34): o driver "Microsoft Print To PDF" (e
+    outros v4/XPS) spoola um pacote XPS (ZIP), não bytes brutos -- mandar isso como
+    RAW pra outra impressora corrompe o documento. `_e_xps`/`encaminhar_bytes`
+    decidem qual caminho usar; roda em qualquer sistema (lógica pura ou mocks, sem
+    precisar do runner Windows)."""
+
+    def test_pacote_xps_e_detectado_pela_assinatura_zip(self):
+        self.assertTrue(encaminhar._e_xps(b"PK\x03\x04" + b"resto do pacote"))
+
+    def test_texto_puro_nao_e_detectado_como_xps(self):
+        self.assertFalse(encaminhar._e_xps(b"Teste do PrintRoute: xxxx"))
+
+    def test_vazio_nao_e_detectado_como_xps(self):
+        self.assertFalse(encaminhar._e_xps(b""))
+
+    @mock.patch("printroute.spooler.encaminhar._encaminhar_raw")
+    @mock.patch("printroute.spooler.encaminhar._encaminhar_xps")
+    def test_pacote_xps_usa_o_caminho_do_ghostscript(self, xps, raw):
+        encaminhar.encaminhar_bytes("Impressora", b"PK\x03\x04conteudo")
+        xps.assert_called_once_with("Impressora", b"PK\x03\x04conteudo")
+        raw.assert_not_called()
+
+    @mock.patch("printroute.spooler.encaminhar._encaminhar_raw")
+    @mock.patch("printroute.spooler.encaminhar._encaminhar_xps")
+    def test_texto_puro_usa_o_caminho_bruto(self, xps, raw):
+        encaminhar.encaminhar_bytes("Impressora", b"so texto", nome_trabalho="Job")
+        raw.assert_called_once_with("Impressora", b"so texto", "Job")
+        xps.assert_not_called()
+
+
+class LocalizarGhostscript(unittest.TestCase):
+    def test_variavel_de_ambiente_tem_prioridade(self):
+        with mock.patch.dict("os.environ", {"PRINTROUTE_GXPS": "/caminho/customizado/gxps.exe"}):
+            self.assertEqual(encaminhar._localizar_gxps(), "/caminho/customizado/gxps.exe")
+
+    def test_sem_variavel_usa_a_pasta_do_executavel(self):
+        # os.path.dirname/join só entendem separador do sistema onde o teste roda (no
+        # Windows de verdade seria "\\", aqui pode ser "/") -- usa o separador certo
+        # dos dois lados da comparação em vez de fixar um dos dois.
+        pasta = os.path.join("pasta", "do", "executavel")
+        with (
+            mock.patch.dict("os.environ", {}, clear=True),
+            mock.patch("sys.executable", os.path.join(pasta, "PrintRoute.exe")),
+        ):
+            caminho = encaminhar._localizar_gxps()
+        self.assertEqual(caminho, os.path.join(pasta, "ghostxps", "gxpswin64.exe"))
+
+
+class EncaminharXps(unittest.TestCase):
+    """Mocka subprocess.run: confere o comando montado, sem precisar do Ghostscript
+    de verdade nem do runner Windows."""
+
+    @mock.patch("printroute.spooler.encaminhar._localizar_gxps", return_value="C:\\gxps\\gxpswin64.exe")
+    @mock.patch("printroute.spooler.encaminhar.subprocess.run")
+    def test_monta_o_comando_certo(self, executar, _localizar):
+        encaminhar._encaminhar_xps("Impressora Real", b"PK\x03\x04conteudo xps")
+        executar.assert_called_once()
+        cmd = executar.call_args.args[0]
+        self.assertEqual(cmd[0], "C:\\gxps\\gxpswin64.exe")
+        self.assertIn("-sDEVICE=mswinpr2", cmd)
+        self.assertIn("-sOutputFile=%printer%Impressora Real", cmd)
+        self.assertTrue(executar.call_args.kwargs.get("check"))
+        # Bug real, achado ao vivo: uma impressora de destino que precisa de interação
+        # (ex.: "Microsoft Print to PDF" sem sessão pra responder o diálogo) nunca
+        # completa -- sem limite, travaria o laço de captura inteiro para sempre.
+        self.assertEqual(executar.call_args.kwargs.get("timeout"), encaminhar.TEMPO_LIMITE_GHOSTSCRIPT_S)
+
+    @mock.patch("printroute.spooler.encaminhar._localizar_gxps", return_value="C:\\gxps\\gxpswin64.exe")
+    @mock.patch("printroute.spooler.encaminhar.subprocess.run")
+    def test_apaga_o_arquivo_temporario_mesmo_se_der_erro(self, executar, _localizar):
+        executar.side_effect = RuntimeError("falhou")
+        caminhos_escritos = []
+        original_tmp = tempfile.NamedTemporaryFile
+
+        def _tmp_espiao(*args, **kwargs):
+            arquivo = original_tmp(*args, **kwargs)
+            caminhos_escritos.append(arquivo.name)
+            return arquivo
+
+        with (
+            mock.patch("printroute.spooler.encaminhar.tempfile.NamedTemporaryFile", side_effect=_tmp_espiao),
+            self.assertRaises(RuntimeError),
+        ):
+            encaminhar._encaminhar_xps("Impressora", b"PK\x03\x04conteudo")
+        self.assertFalse(os.path.exists(caminhos_escritos[0]))
 
 
 class EncaminharParaConfiguracao(unittest.TestCase):

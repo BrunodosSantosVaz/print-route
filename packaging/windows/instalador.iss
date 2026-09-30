@@ -9,12 +9,20 @@
 ; Uso: ISCC.exe /DMyAppVersion=0.1.0 /DMyAppExe="caminho\para\PrintRoute.exe" instalador.iss
 ; (build_installer.py monta esses defines automaticamente; não rode ISCC direto à mão
 ; para uma release oficial -- essas só saem do CI.)
+;
+; Também embute o Ghostscript/ghostxps (gxpswin64.exe + gxpsdll64.dll, baixados e
+; conferidos por build_installer.py -- tarefa #34): reconstrói o trabalho capturado
+; (pacote XPS) na impressora de destino, pelo driver dela própria, em vez de copiar
+; bytes brutos (que corrompia documentos reais). Ver src/printroute/spooler/encaminhar.py.
 
 #ifndef MyAppVersion
   #define MyAppVersion "0.0.0"
 #endif
 #ifndef MyAppExe
   #define MyAppExe "..\..\build-local\PrintRoute.exe"
+#endif
+#ifndef MyGhostXpsDir
+  #define MyGhostXpsDir "..\..\build-local\ghostxps-cache"
 #endif
 #ifndef MyOutputDir
   #define MyOutputDir "..\..\build-local"
@@ -49,6 +57,8 @@ Name: "desktopicon"; Description: "Criar um atalho na área de trabalho"; GroupD
 
 [Files]
 Source: "{#MyAppExe}"; DestDir: "{app}"; DestName: "PrintRoute.exe"; Flags: ignoreversion
+Source: "{#MyGhostXpsDir}\gxpswin64.exe"; DestDir: "{app}\ghostxps"; Flags: ignoreversion
+Source: "{#MyGhostXpsDir}\gxpsdll64.dll"; DestDir: "{app}\ghostxps"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\PrintRoute"; Filename: "{app}\PrintRoute.exe"

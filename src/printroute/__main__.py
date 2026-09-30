@@ -15,6 +15,7 @@ import datetime
 import queue
 import sys
 import threading
+import time
 import traceback
 
 from printroute import inicializacao
@@ -28,6 +29,7 @@ from printroute.ui.seletor import abrir_seletor
 _parar = threading.Event()
 _pedidos_de_ui: queue.Queue = queue.Queue()
 CAMINHO_LOG_ERROS = CAMINHO_PADRAO.parent / "erro.log"
+PAUSA_APOS_ERRO_S = 1.0  # ver _observar_e_encaminhar: evita laço apertado se o erro persistir
 
 
 def _desinstalar() -> None:
@@ -80,7 +82,13 @@ def _observar_e_encaminhar(estado: EstadoApp) -> None:
                 if escolha is not None:
                     encaminhar.encaminhar_escolha(dados, escolha)
         except Exception:
+            # Achado ao vivo: sem a pausa, um erro que se repete a cada volta (ex.: a
+            # impressora ainda não existe bem no instante em que o laço começa a rodar)
+            # martela o disco e enche o erro.log em segundos -- a pausa dá tempo da
+            # causa (quase sempre transitória) se resolver sozinha antes da próxima
+            # tentativa.
             _registrar_erro("observar_e_encaminhar")
+            time.sleep(PAUSA_APOS_ERRO_S)
 
 
 def main() -> None:

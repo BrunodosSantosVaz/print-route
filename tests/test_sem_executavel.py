@@ -62,9 +62,11 @@ class TocaExecutavel(unittest.TestCase):
 
     def test_compilador_e_instalador_tocam(self):
         # Bug real (tarefa #24): um PR que so mexia em build_exe.py foi marcado sem-executavel
-        # e pulou a homologacao inteira, mesmo mudando o .exe de verdade.
+        # e pulou a homologacao inteira, mesmo mudando o .exe de verdade. Mesmo bug depois
+        # (tarefa #34): build_installer.py tambem nunca estava na lista.
         self.assertEqual(self.rodar(["packaging/windows/build_exe.py"]), 0)
         self.assertEqual(self.rodar(["docs/a.md", "packaging/windows/instalador.iss"]), 0)
+        self.assertEqual(self.rodar(["packaging/windows/build_installer.py"]), 0)
 
     def test_nome_parecido_nao_conta(self):
         self.assertEqual(self.rodar(["docs/src/nota.md", "requirements-build.txt.bak", "tests/src/x.py",
