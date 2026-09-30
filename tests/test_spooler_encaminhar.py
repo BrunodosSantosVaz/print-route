@@ -162,6 +162,10 @@ class EncaminharXps(unittest.TestCase):
         # (ex.: "Microsoft Print to PDF" sem sessão pra responder o diálogo) nunca
         # completa -- sem limite, travaria o laço de captura inteiro para sempre.
         self.assertEqual(executar.call_args.kwargs.get("timeout"), encaminhar.TEMPO_LIMITE_GHOSTSCRIPT_S)
+        # Bug real, achado ao vivo (tarefa #36): sem isso, a janela de console do
+        # gxpswin64.exe (programa de linha de comando) aparecia na tela a cada
+        # trabalho, mesmo o PrintRoute sendo --windowed.
+        self.assertIn("creationflags", executar.call_args.kwargs)
 
     @mock.patch("printroute.spooler.encaminhar._localizar_gxps", return_value="C:\\gxps\\gxpswin64.exe")
     @mock.patch("printroute.spooler.encaminhar.subprocess.run")
