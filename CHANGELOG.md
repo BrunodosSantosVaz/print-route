@@ -25,4 +25,5 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 - PrintRoute.exe roda sem elevação e não consegue ler a pasta de spool (seletor nunca abre pro usuário normal) (#30)
 - Instalador falha ao abrir/desinstalar o PrintRoute: CreateProcess exige elevação (erro 740) (#32)
 - Encaminhamento corrompe documentos reais: precisa reconstruir via Ghostscript (XPS), não copiar bytes brutos (#34)
+- Console do Ghostscript aparece na tela ao encaminhar (deveria ser invisível) (#36)
 
