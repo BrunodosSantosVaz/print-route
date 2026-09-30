@@ -22,4 +22,5 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 - PyInstaller não empacota win32timezone: captura de impressão trava com ModuleNotFoundError (#24)
 - Configurações abre janela repetida (e quebra o seletor): Tkinter criado fora da thread principal (#26)
 - Laço de captura quebra silenciosamente: config.json com BOM e qualquer erro inesperado derrubam o app todo (#28)
+- PrintRoute.exe roda sem elevação e não consegue ler a pasta de spool (seletor nunca abre pro usuário normal) (#30)
 

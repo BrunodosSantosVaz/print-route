@@ -17,9 +17,13 @@ usa `FindFirstPrinterChangeNotification`: essa função **não é exposta pelo p
 `GetJob`, `StartDocPrinter`, `WritePrinter` etc., nada de notificação de mudança), e
 reescrevê-la via `ctypes` seria mais um componente arriscado sem necessidade.
 
-Requer conseguir ler `C:\\Windows\\System32\\spool\\PRINTERS\\` (normalmente só
-administradores conseguem) -- o instalador (tarefa #11) provavelmente vai precisar
-rodar o PrintRoute elevado por causa disso.
+Requer conseguir ler `C:\\Windows\\System32\\spool\\PRINTERS\\`: confirmado com
+`icacls` que o grupo Usuários só tem permissão de **escrita** ali (submeter um
+trabalho), nunca de leitura do conteúdo -- só SYSTEM/Administradores (token elevado)
+leem. Sem elevação, `_arquivos_spl()` engole o erro de permissão como pasta vazia
+(nenhuma exceção) e a captura nunca encontra nada, silenciosamente -- bug real,
+achado testando de verdade (tarefa #30), corrigido fazendo o `.exe` pedir elevação
+sozinho (`--uac-admin` no PyInstaller, `packaging/windows/build_exe.py`).
 
 `win32print` é importado dentro de `encaminhar_bytes`, não no topo do arquivo: assim o
 módulo inteiro (inclusive `encaminhar_para_configuracao`, que só orquestra chamadas)
