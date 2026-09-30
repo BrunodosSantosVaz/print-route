@@ -22,9 +22,9 @@ case "$1 $2" in
     dir=""; args=("$@")
     for ((i = 0; i < ${#args[@]}; i++)); do [ "${args[i]}" = --dir ] && dir="${args[i+1]}"; done
     mkdir -p "$dir"
-    cp "$FIX/binario" "$dir/PrintRoute-$3-windows-x64.exe"
-    (cd "$dir" && sha256sum "PrintRoute-$3-windows-x64.exe" > SHA256SUMS.txt)
-    [ ! -f "$FIX/adulterar" ] || echo adulterado >> "$dir/PrintRoute-$3-windows-x64.exe" ;;
+    cp "$FIX/binario" "$dir/PrintRoute-Setup-$3-windows-x64.exe"
+    (cd "$dir" && sha256sum "PrintRoute-Setup-$3-windows-x64.exe" > SHA256SUMS.txt)
+    [ ! -f "$FIX/adulterar" ] || echo adulterado >> "$dir/PrintRoute-Setup-$3-windows-x64.exe" ;;
   "release create")  # guarda os arquivos anexados, como a Release os receberia
     mkdir -p "$FIX/publicado"
     for a in "$@"; do [ ! -f "$a" ] || [ "$a" = notas.md ] || cp "$a" "$FIX/publicado/"; done ;;
@@ -77,12 +77,12 @@ class PromoverRelease(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(sorted(saidas), ["nova=true", "tag=v0.2.0"])
         publicado = os.path.join(self.fix, "publicado")
-        self.assertEqual(sorted(os.listdir(publicado)), ["PrintRoute-v0.2.0-windows-x64.exe", "SHA256SUMS.txt"])
-        with open(os.path.join(publicado, "PrintRoute-v0.2.0-windows-x64.exe"), "rb") as f:
+        self.assertEqual(sorted(os.listdir(publicado)), ["PrintRoute-Setup-v0.2.0-windows-x64.exe", "SHA256SUMS.txt"])
+        with open(os.path.join(publicado, "PrintRoute-Setup-v0.2.0-windows-x64.exe"), "rb") as f:
             self.assertEqual(f.read(), BINARIO)  # nada de recompilar: os bytes são os da candidata
         hash_ = hashlib.sha256(BINARIO).hexdigest()
         with open(os.path.join(publicado, "SHA256SUMS.txt"), encoding="utf-8") as f:
-            self.assertEqual(f.read().split(), [hash_, "PrintRoute-v0.2.0-windows-x64.exe"])
+            self.assertEqual(f.read().split(), [hash_, "PrintRoute-Setup-v0.2.0-windows-x64.exe"])
 
     def test_executavel_fica_so_na_release_e_nada_e_gravado_no_repositorio(self):
         r, _ = self.rodar()
@@ -109,7 +109,7 @@ class PromoverRelease(unittest.TestCase):
         self.assertIn("--target abc123", criar)
         self.assertIn("--latest", criar)
         self.assertNotIn("--latest=false", criar)
-        self.assertIn("PrintRoute-v0.2.0-windows-x64.exe", criar)
+        self.assertIn("PrintRoute-Setup-v0.2.0-windows-x64.exe", criar)
 
     def test_ensaio_nao_marca_latest(self):
         self.rodar(TARGET_SHA="abc123", RELEASE_LATEST="false")
