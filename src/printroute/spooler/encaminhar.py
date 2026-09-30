@@ -188,7 +188,14 @@ def _encaminhar_xps(nome_impressora_destino: str, dados: bytes) -> None:
     Print to PDF" perguntando onde salvar) não trava numa caixa de diálogo visível
     aqui -- ela só nunca completa. Sem limite, esse UM trabalho travaria o laço de
     captura inteiro para sempre; com o limite, `subprocess.TimeoutExpired` é só mais
-    uma exceção que `_observar_e_encaminhar` já registra e segue (tarefa #28)."""
+    uma exceção que `_observar_e_encaminhar` já registra e segue (tarefa #28).
+
+    `creationflags=CREATE_NO_WINDOW`: bug real, achado ao vivo (tarefa #36) -- o
+    `gxpswin64.exe` é um programa de linha de comando; sem isso, abre a própria janela
+    de console na tela a cada trabalho, mesmo o PrintRoute sendo `--windowed` (isso só
+    evita o PrintRoute ter console próprio, não os filhos que ele lança). Só existe no
+    Windows (`getattr` com 0 como padrão: não quebra a importação do módulo em
+    nenhum outro sistema, ex.: os testes que rodam na CI em Linux)."""
     with tempfile.NamedTemporaryFile(suffix=".xps", delete=False) as tmp:
         tmp.write(dados)
         caminho_tmp = tmp.name
@@ -199,6 +206,7 @@ def _encaminhar_xps(nome_impressora_destino: str, dados: bytes) -> None:
                 "-sDEVICE=mswinpr2", f"-sOutputFile=%printer%{nome_impressora_destino}",
                 caminho_tmp,
             ],
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             check=True, capture_output=True, text=True, timeout=TEMPO_LIMITE_GHOSTSCRIPT_S,
         )
     finally:
