@@ -59,10 +59,16 @@ class Configuracao:
 
 def carregar(caminho: pathlib.Path = CAMINHO_PADRAO) -> Configuracao:
     """Lê a configuração salva. Se o arquivo não existir (primeira vez que o PrintRoute
-    roda), devolve uma configuração vazia no modo padrão, sem lançar erro."""
+    roda), devolve uma configuração vazia no modo padrão, sem lançar erro.
+
+    "utf-8-sig" (não "utf-8"): o arquivo é editável à mão (é só JSON), e editores comuns
+    no Windows -- Notepad com a opção "UTF-8", ou `Set-Content -Encoding UTF8` do
+    PowerShell -- gravam um BOM no início. "utf-8" puro não tolera isso (bug real,
+    achado ao vivo: `json.JSONDecodeError: Unexpected UTF-8 BOM`, derrubando o laço de
+    captura inteiro); "utf-8-sig" lê os dois casos (com ou sem BOM) sem diferença."""
     if not caminho.exists():
         return Configuracao()
-    dados = json.loads(caminho.read_text(encoding="utf-8"))
+    dados = json.loads(caminho.read_text(encoding="utf-8-sig"))
     return Configuracao.de_dict(dados)
 
 

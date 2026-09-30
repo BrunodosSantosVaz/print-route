@@ -77,5 +77,39 @@ class PedidoDeConfiguracoes(unittest.TestCase):
         abrir_configuracoes.assert_called_once_with(carregar.return_value)
 
 
+@unittest.skipUnless(_TEM_WINDOWS, "importa a UI (Tkinter/pystray), só garantida no Windows")
+class ResilienciaDoLaco(unittest.TestCase):
+    """Bug real, achado ao vivo: um config.json com BOM derrubava o laço inteiro (e o
+    processo junto, sem nenhum vestígio -- o .exe é --windowed, sem console). Um erro
+    num trabalho/configuração não pode tirar o PrintRoute do ar."""
+
+    def setUp(self):
+        printroute_main._abrir_configuracoes_pendente()
+        printroute_main._parar.clear()
+        self.addCleanup(printroute_main._parar.clear)
+
+    @mock.patch("printroute.__main__._registrar_erro")
+    @mock.patch("printroute.__main__.carregar")
+    @mock.patch("printroute.__main__.encaminhar")
+    @mock.patch("printroute.__main__.gerenciar")
+    def test_erro_no_laco_e_registrado_e_o_laco_continua(self, gerenciar, encaminhar, carregar, _registrar_erro):
+        estado = mock.Mock(ativo=True)
+        voltas = []
+
+        def _aguardar(*_args, **_kwargs):
+            voltas.append(1)
+            if len(voltas) >= 2:
+                printroute_main._parar.set()
+            return b"dados"
+
+        encaminhar.aguardar_trabalho.side_effect = _aguardar
+        carregar.side_effect = ValueError("config.json quebrado")
+
+        printroute_main._observar_e_encaminhar(estado)  # não deve propagar o ValueError
+
+        self.assertEqual(len(voltas), 2)  # o erro na 1a volta não impediu a 2a
+        self.assertEqual(_registrar_erro.call_count, 2)
+
+
 if __name__ == "__main__":
     unittest.main()
