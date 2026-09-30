@@ -14,10 +14,10 @@ pré-configuradas, ou escolhidas na hora, num seletor. Pensado para sistemas que
 ## Estado atual
 
 **Em desenvolvimento, sem release publicada ainda.** A captura, o reencaminhamento (uma ou mais
-impressoras, com cópias), o seletor na hora, a configuração e o ícone na bandeja já existem e são
-testados a cada PR (veja [épico #3](https://github.com/BrunodosSantosVaz/print-route/issues/3)), mas
-**ainda não foram testados numa sessão de desktop real** — só por CI, que não tem desktop interativo.
-O instalador Windows (Inno Setup) está sendo construído agora; até ele existir e a primeira versão ser
+impressoras, com cópias, reconstruindo o documento pelo driver de cada uma via Ghostscript), o seletor
+na hora, a configuração, o ícone na bandeja e o instalador (com desinstalador e elevação automática) já
+existem e foram testados numa sessão de desktop real, não só pela CI (veja
+[épico #3](https://github.com/BrunodosSantosVaz/print-route/issues/3)). Até a primeira versão ser
 publicada, não há nada nas [Releases](https://github.com/BrunodosSantosVaz/print-route/releases) para
 baixar.
 
@@ -141,4 +141,6 @@ Distribuído sob a **[Licença AGPL-3.0](LICENSE)**. O software é fornecido "co
 
 O `.exe`, quando publicado, empacotará o interpretador **Python** (licença PSF), o **Tcl/Tk** (licença
 BSD) e será gerado com o **PyInstaller** (GPLv2 com exceção que permite distribuir o executável gerado
-sob a licença do seu próprio programa).
+sob a licença do seu próprio programa). O instalador também embute o **Ghostscript/`ghostxps`**
+([Artifex](https://www.ghostscript.com/), AGPL-3.0 — mesma licença do PrintRoute), usado para reconstruir
+o documento capturado na impressora de destino.

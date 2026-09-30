@@ -92,7 +92,8 @@ class ResilienciaDoLaco(unittest.TestCase):
     @mock.patch("printroute.__main__.carregar")
     @mock.patch("printroute.__main__.encaminhar")
     @mock.patch("printroute.__main__.gerenciar")
-    def test_erro_no_laco_e_registrado_e_o_laco_continua(self, gerenciar, encaminhar, carregar, _registrar_erro):
+    @mock.patch("printroute.__main__.time.sleep")  # a pausa é real (1s); não vale a pena no teste
+    def test_erro_no_laco_e_registrado_e_o_laco_continua(self, _sleep, gerenciar, encaminhar, carregar, _registrar_erro):
         estado = mock.Mock(ativo=True)
         voltas = []
 
@@ -109,6 +110,10 @@ class ResilienciaDoLaco(unittest.TestCase):
 
         self.assertEqual(len(voltas), 2)  # o erro na 1a volta não impediu a 2a
         self.assertEqual(_registrar_erro.call_count, 2)
+        # Achado ao vivo: sem a pausa, um erro que persiste martela o disco (erro.log
+        # cresceu 282 KB em ~3s numa corrida real) -- confere que ela sempre acontece.
+        self.assertEqual(_sleep.call_count, 2)
+        _sleep.assert_called_with(printroute_main.PAUSA_APOS_ERRO_S)
 
 
 if __name__ == "__main__":

@@ -9,12 +9,20 @@
 ; Uso: ISCC.exe /DMyAppVersion=0.1.0 /DMyAppExe="caminho\para\PrintRoute.exe" instalador.iss
 ; (build_installer.py monta esses defines automaticamente; não rode ISCC direto à mão
 ; para uma release oficial -- essas só saem do CI.)
+;
+; Também embute o Ghostscript/ghostxps (gxpswin64.exe + gxpsdll64.dll, baixados e
+; conferidos por build_installer.py -- tarefa #34): reconstrói o trabalho capturado
+; (pacote XPS) na impressora de destino, pelo driver dela própria, em vez de copiar
+; bytes brutos (que corrompia documentos reais). Ver src/printroute/spooler/encaminhar.py.
 
 #ifndef MyAppVersion
   #define MyAppVersion "0.0.0"
 #endif
 #ifndef MyAppExe
   #define MyAppExe "..\..\build-local\PrintRoute.exe"
+#endif
+#ifndef MyGhostXpsDir
+  #define MyGhostXpsDir "..\..\build-local\ghostxps-cache"
 #endif
 #ifndef MyOutputDir
   #define MyOutputDir "..\..\build-local"
@@ -49,14 +57,21 @@ Name: "desktopicon"; Description: "Criar um atalho na área de trabalho"; GroupD
 
 [Files]
 Source: "{#MyAppExe}"; DestDir: "{app}"; DestName: "PrintRoute.exe"; Flags: ignoreversion
+Source: "{#MyGhostXpsDir}\gxpswin64.exe"; DestDir: "{app}\ghostxps"; Flags: ignoreversion
+Source: "{#MyGhostXpsDir}\gxpsdll64.dll"; DestDir: "{app}\ghostxps"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\PrintRoute"; Filename: "{app}\PrintRoute.exe"
 Name: "{group}\Desinstalar o PrintRoute"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\PrintRoute"; Filename: "{app}\PrintRoute.exe"; Tasks: desktopicon
 
+; shellexec (nos dois): desde a tarefa #30 o PrintRoute.exe exige elevação sozinho
+; (--uac-admin). Sem "shellexec", o Setup chama CreateProcess direto, que não sabe
+; pedir UAC e falha com "CreateProcess failed; code 740: a operação solicitada requer
+; elevação" -- bug real, achado ao vivo (issue #32). "shellexec" usa ShellExecute, que
+; sabe elevar (o processo já é admin aqui, então eleva sem novo prompt).
 [Run]
-Filename: "{app}\PrintRoute.exe"; Description: "Abrir o PrintRoute agora"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\PrintRoute.exe"; Description: "Abrir o PrintRoute agora"; Flags: nowait postinstall skipifsilent shellexec
 
 [UninstallRun]
-Filename: "{app}\PrintRoute.exe"; Parameters: "--desinstalar"; RunOnceId: "DesinstalarImpressora"; Flags: waituntilterminated runhidden
+Filename: "{app}\PrintRoute.exe"; Parameters: "--desinstalar"; RunOnceId: "DesinstalarImpressora"; Flags: waituntilterminated runhidden shellexec

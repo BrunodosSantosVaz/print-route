@@ -1,8 +1,9 @@
-"""Captura o trabalho de impressão enviado à impressora PrintRoute e o encaminha, sem
-nenhum processamento, para uma impressora de destino real. "Caminho mais simples" da
-tarefa #6: uma impressora fixa, uma cópia, sem rasterização -- o Ghostscript (para
-quando o driver da impressora de destino for diferente do de origem) fica para uma
-tarefa futura, ver AGENTS.md, "Arquitetura de captura de impressão".
+"""Captura o trabalho de impressão enviado à impressora PrintRoute e o encaminha para
+uma impressora de destino real, reconstruindo-o pelo driver dela própria (via
+Ghostscript/XPS) quando o trabalho capturado for um pacote XPS -- ver
+`encaminhar_bytes`, tarefa #34 -- em vez do "caminho mais simples" original da tarefa
+#6 (bytes brutos, sem nenhum processamento), que corrompia qualquer documento real
+quando a impressora de destino precisava processar o conteúdo de verdade.
 
 A captura confirma o trabalho novo pela fila da própria impressora (`EnumJobs`) e só
 então lê o arquivo correspondente na pasta de spool do Windows -- a mesma heurística de
@@ -25,12 +26,15 @@ leem. Sem elevação, `_arquivos_spl()` engole o erro de permissão como pasta v
 achado testando de verdade (tarefa #30), corrigido fazendo o `.exe` pedir elevação
 sozinho (`--uac-admin` no PyInstaller, `packaging/windows/build_exe.py`).
 
-`win32print` é importado dentro de `encaminhar_bytes`, não no topo do arquivo: assim o
+`win32print` é importado dentro de `_encaminhar_raw`, não no topo do arquivo: assim o
 módulo inteiro (inclusive `encaminhar_para_configuracao`, que só orquestra chamadas)
 importa em qualquer sistema, e os testes que usam mock em vez de uma impressora de
 verdade rodam também no Linux da CI, sem precisar do runner Windows.
 """
+import os
 import pathlib
+import subprocess
+import tempfile
 import time
 
 from printroute.configuracao import Configuracao
@@ -39,6 +43,7 @@ from printroute.selecao import EscolhaDoUsuario
 PASTA_SPOOL = pathlib.Path(r"C:\Windows\System32\spool\PRINTERS")
 INTERVALO_DE_VERIFICACAO = 0.05  # segundos entre cada checagem da pasta/arquivo
 PERIODO_DE_ESTABILIDADE = 0.3  # segundos sem o arquivo crescer para considerar o trabalho concluído
+_ASSINATURA_ZIP = b"PK\x03\x04"  # início de todo pacote XPS (é um ZIP por baixo)
 
 
 def _arquivos_spl() -> set[pathlib.Path]:
@@ -141,8 +146,69 @@ def aguardar_trabalho(nome_impressora: str, tempo_limite_s: float = 30.0) -> byt
     return None
 
 
-def encaminhar_bytes(nome_impressora_destino: str, dados: bytes, nome_trabalho: str = "PrintRoute") -> None:
-    """Envia os bytes brutos para a impressora de destino, sem nenhum processamento."""
+def _e_xps(dados: bytes) -> bool:
+    """O driver "Microsoft Print To PDF" (e outros drivers v4, baseados no pipeline
+    XPS do Windows) spoola um **pacote XPS** (ZIP, com FixedDocumentSequence, páginas,
+    fontes) em vez de bytes brutos de dispositivo -- descoberto ao vivo (tarefa #34).
+    Mandar esse pacote como RAW pra outra impressora não funciona: nem o
+    `System.Windows.Xps.Packaging.XpsDocument` do .NET nem o processador de impressão
+    nativo do Windows (`MS_XPS_PROC`, erro 0x80004005 confirmado no log de eventos do
+    spooler) conseguem reprocessá-lo fora do contexto original -- só o Ghostscript
+    (`ghostxps`) lê corretamente. Só o driver "Generic / Text Only" (v3 clássico,
+    primeiro candidato em `gerenciar.CANDIDATOS_DE_DRIVER`) ainda produz texto puro de
+    verdade, que `_encaminhar_raw` continua atendendo."""
+    return dados[:4] == _ASSINATURA_ZIP
+
+
+def _localizar_gxps() -> str:
+    """Caminho do `gxpswin64.exe` (Ghostscript/`ghostxps` -- o interpretador de XPS;
+    **não** é o `gs`/`gswin64c.exe` principal, que não lê XPS sozinho): embutido pelo
+    instalador em `<pasta do .exe>/ghostxps/` (ver `instalador.iss`). A variável de
+    ambiente `PRINTROUTE_GXPS` sobrescreve -- só para desenvolvimento/testes, rodando
+    do código-fonte sem precisar compilar o instalador primeiro."""
+    de_ambiente = os.environ.get("PRINTROUTE_GXPS")
+    if de_ambiente:
+        return de_ambiente
+    import sys
+
+    return os.path.join(os.path.dirname(sys.executable), "ghostxps", "gxpswin64.exe")
+
+
+TEMPO_LIMITE_GHOSTSCRIPT_S = 60.0  # ver _encaminhar_xps: nunca travar o laço pra sempre
+
+
+def _encaminhar_xps(nome_impressora_destino: str, dados: bytes) -> None:
+    """Reconstrói o trabalho (pacote XPS) na impressora de destino, pelo driver dela
+    própria, via Ghostscript -- não por um pass-through cego de bytes. É a
+    "Conversão: Ghostscript" que a arquitetura original já previa (AGENTS.md),
+    confirmada ao vivo: renderiza igual ao documento original e o job chega certo na
+    fila de destino (`-sDEVICE=mswinpr2`, saída direta pra uma impressora pelo nome).
+
+    `timeout`: uma impressora de destino que precise de interação (ex.: "Microsoft
+    Print to PDF" perguntando onde salvar) não trava numa caixa de diálogo visível
+    aqui -- ela só nunca completa. Sem limite, esse UM trabalho travaria o laço de
+    captura inteiro para sempre; com o limite, `subprocess.TimeoutExpired` é só mais
+    uma exceção que `_observar_e_encaminhar` já registra e segue (tarefa #28)."""
+    with tempfile.NamedTemporaryFile(suffix=".xps", delete=False) as tmp:
+        tmp.write(dados)
+        caminho_tmp = tmp.name
+    try:
+        subprocess.run(
+            [
+                _localizar_gxps(), "-dBATCH", "-dNOPAUSE", "-dQUIET",
+                "-sDEVICE=mswinpr2", f"-sOutputFile=%printer%{nome_impressora_destino}",
+                caminho_tmp,
+            ],
+            check=True, capture_output=True, text=True, timeout=TEMPO_LIMITE_GHOSTSCRIPT_S,
+        )
+    finally:
+        os.remove(caminho_tmp)
+
+
+def _encaminhar_raw(nome_impressora_destino: str, dados: bytes, nome_trabalho: str) -> None:
+    """Envia os bytes brutos para a impressora de destino, sem nenhum processamento --
+    só correto quando origem e destino falam o mesmo formato (texto puro; ver
+    `_e_xps`)."""
     import win32print
 
     hprinter = win32print.OpenPrinter(nome_impressora_destino)
@@ -158,6 +224,16 @@ def encaminhar_bytes(nome_impressora_destino: str, dados: bytes, nome_trabalho: 
             win32print.EndDocPrinter(hprinter)
     finally:
         win32print.ClosePrinter(hprinter)
+
+
+def encaminhar_bytes(nome_impressora_destino: str, dados: bytes, nome_trabalho: str = "PrintRoute") -> None:
+    """Encaminha o trabalho capturado para a impressora de destino: reconstrói pelo
+    driver dela própria (Ghostscript) quando é um pacote XPS -- a maioria dos casos
+    reais, ver `_e_xps` -- ou copia os bytes brutos quando é texto puro de verdade."""
+    if _e_xps(dados):
+        _encaminhar_xps(nome_impressora_destino, dados)
+    else:
+        _encaminhar_raw(nome_impressora_destino, dados, nome_trabalho)
 
 
 def encaminhar_para_configuracao(dados: bytes, config: Configuracao) -> None:

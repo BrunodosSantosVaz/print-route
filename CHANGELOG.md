@@ -23,4 +23,6 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 - Configurações abre janela repetida (e quebra o seletor): Tkinter criado fora da thread principal (#26)
 - Laço de captura quebra silenciosamente: config.json com BOM e qualquer erro inesperado derrubam o app todo (#28)
 - PrintRoute.exe roda sem elevação e não consegue ler a pasta de spool (seletor nunca abre pro usuário normal) (#30)
+- Instalador falha ao abrir/desinstalar o PrintRoute: CreateProcess exige elevação (erro 740) (#32)
+- Encaminhamento corrompe documentos reais: precisa reconstruir via Ghostscript (XPS), não copiar bytes brutos (#34)
 

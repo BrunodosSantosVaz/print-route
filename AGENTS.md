@@ -10,11 +10,13 @@ Impressora virtual para Windows que reencaminha a impressão recebida para uma o
 (pré-configuradas, ou escolhidas na hora), compilada em um `.exe`. **Windows-only** (usa APIs do spooler
 de impressão do Windows). Licença AGPL-3.0.
 
-## Estado atual: ainda não há funcionalidade real
+## Estado atual: funcional, validado ao vivo
 
-Este repositório tem a esteira completa de desenvolvimento e só um esqueleto do programa (janela Tkinter
-vazia, `src/printroute/__main__.py`). A arquitetura de captura de impressão (abaixo) já foi decidida pelo
-dono; o que falta é implementá-la e validá-la na prática (épico #3).
+Captura, encaminhamento (fixo e via Ghostscript/XPS), seletor na hora, configuração, bandeja e instalador
+(com desinstalador e elevação) existem e foram testados numa máquina Windows de verdade, não só pela CI —
+vários bugs reais só apareceram nesse teste ao vivo (ver módulos individuais para o histórico: porta em
+caixa diferente, `win32timezone` faltando no `.exe`, thread da UI, BOM no `config.json`, elevação do
+processo, `CreateProcess` do instalador, formato XPS do encaminhamento). Ainda sem release publicada.
 
 ## Arquitetura de captura de impressão (decidida em 29/09/2026)
 
@@ -34,17 +36,21 @@ lista suporte a Windows 10 como "won't be implemented"). Em vez disso, o mesmo p
    por enquanto: observar a pasta já funciona, é mais simples e reaproveita uma técnica já validada.
    Se isso se mostrar frágil na prática (perder trabalhos concorrentes, por exemplo), reconsidere o
    `ctypes`.
-2. **Conversão**: **Ghostscript** (AGPL, binário embutido no instalador) rasteriza/converte o trabalho
-   capturado — **ainda não implementado** (tarefa #6 encaminha os bytes brutos, sem conversão; só
-   funciona bem quando origem e destino aceitam o mesmo formato, ex.: texto simples). Vira necessário
-   de verdade quando a impressora de destino tiver um driver diferente do de origem.
-3. **Reenvio**: por enquanto, os bytes brutos vão direto para a impressora de destino via
-   `win32print.WritePrinter` (RAW). O ideal (cada impressora recebendo pelo **driver dela própria**,
-   via GDI) fica para quando o Ghostscript entrar.
+2. **Conversão e reenvio** (`encaminhar_bytes`, `spooler/encaminhar.py`): depende do que foi capturado.
+   Drivers v4/XPS do Windows (ex.: "Microsoft Print To PDF", o mais comum quando "Generic / Text Only"
+   não está disponível) spoolam um **pacote XPS** (ZIP, assinatura `PK`), não bytes brutos de
+   dispositivo — descoberto ao vivo (tarefa #34): mandar esse pacote como RAW pra outra impressora
+   corrompe o documento (nem o `System.Windows.Xps` do .NET nem o `MS_XPS_PROC` do Windows conseguem
+   reprocessá-lo fora do contexto original). Por isso `encaminhar_bytes` detecta a assinatura ZIP e, se
+   for XPS, reconstrói na impressora de destino **pelo driver dela própria**, via **Ghostscript**
+   (binário `ghostxps`/`gxpswin64.exe` — não o `gs` principal, que não lê XPS sozinho — baixado e
+   conferido por hash em `build_installer.py`, embutido no instalador em `{app}\ghostxps\`). Só quando o
+   driver de origem é "Generic / Text Only" (texto puro de verdade) é que o caminho antigo (bytes brutos
+   via `win32print.WritePrinter`, RAW) continua sendo usado, corretamente.
 
-O protótipo da tarefa #4 (`poc/`) foi validado pelo dono num Windows de verdade. A tarefa #6
-(`spooler/encaminhar.py`) só foi validada pela CI (Windows real, mas sem um humano conferindo a
-impressão de verdade) — quem escreve este código não tem acesso a uma máquina Windows neste ambiente.
+O protótipo da tarefa #4 (`poc/`) e as tarefas #5–#34 foram validados pelo dono num Windows de verdade
+(não só pela CI) — quem escreve este código não tem acesso a uma máquina Windows neste ambiente; testes
+ao vivo (via acesso remoto) são o que efetivamente pegou os bugs mais sérios até aqui.
 
 ## `pyproject.toml` é a referência
 
@@ -70,7 +76,8 @@ Consulte **sempre** o `pyproject.toml` antes de assumir qualquer coisa sobre o p
 | Rodar o programa | `python src/printroute/__main__.py` (ou `python -m printroute` com `pip install -e .`) |
 | Testes (obrigatório antes de todo commit) | `python -m unittest discover -s tests` |
 | Lint (roda na CI; tem que ficar sem avisos) | `uvx ruff check .` |
-| Compilar para Windows | `python packaging/windows/build_exe.py` (num Windows, com `pip install -r requirements-build.txt`) |
+| Compilar só o `.exe` (Windows) | `python packaging/windows/build_exe.py` (com `pip install -r requirements-build.txt`) |
+| Compilar o instalador (Windows) | `python packaging/windows/build_installer.py` (precisa do Inno Setup também; baixa e confere o Ghostscript/`ghostxps` sozinho, num cache em `build-local/`) |
 | Instalar para desenvolver | `pip install -e .` |
 
 A saída do compilador vai para `build-local/`, que é ignorada pelo Git. Apague o que você gerou
@@ -81,7 +88,7 @@ A saída do compilador vai para `build-local/`, que é ignorada pelo Git. Apague
 | Pasta | Conteúdo |
 |---|---|
 | `src/printroute/` | O programa (pacote). Mexer aqui **muda o executável** e exige uma versão nova. |
-| `src/printroute/spooler/` | Interação com o spooler: `gerenciar.py` (instala/remove a impressora, via PowerShell), `encaminhar.py` (captura pela pasta de spool + reenvio bruto, via `pywin32`). Testes só rodam no Windows (`check`/`compat` na CI). |
+| `src/printroute/spooler/` | Interação com o spooler: `gerenciar.py` (instala/remove a impressora, via PowerShell), `encaminhar.py` (captura pela pasta de spool + reenvio -- via Ghostscript/XPS quando o capturado for um pacote XPS, ou bytes brutos via `pywin32` quando for texto puro; ver "Arquitetura de captura de impressão"). Testes só rodam no Windows (`check`/`compat` na CI). |
 | `src/printroute/configuracao.py` | Impressoras de destino, cópias e modo (fixo/perguntar), em JSON. Sem dependência do Windows: testes rodam em qualquer sistema. |
 | `src/printroute/selecao.py` | Lógica do seletor de impressora na hora (modo "perguntar"): candidatas, escolha padrão, validação. Sem Tkinter, testável em qualquer sistema. |
 | `src/printroute/estado.py` | Se o reencaminhamento está ativado/pausado (em memória, menu da bandeja). Testável em qualquer sistema. |
@@ -130,5 +137,6 @@ A saída do compilador vai para `build-local/`, que é ignorada pelo Git. Apague
   no formato `tipo: resumo` (`feat`, `fix`, `docs`, `test`, `refactor`, `build`, `chore`).
 - Código simples: funções curtas, uma responsabilidade por módulo, sem repetição. Prefira ajustar o que
   já existe a criar outro caminho para a mesma coisa.
-- Nada de dependência nova sem necessidade concreta e sem citar por quê no PR (o programa hoje não tem
-  nenhuma dependência de execução).
+- Nada de dependência nova (Python) nem binário novo embutido no instalador sem necessidade concreta e
+  sem citar por quê no PR (ver "Dependências", acima, e o Ghostscript/`ghostxps` na arquitetura de
+  captura -- os dois casos reais até agora, ambos justificados ali).
