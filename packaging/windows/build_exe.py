@@ -87,6 +87,18 @@ def compilar(destino_exe):
             # "ModuleNotFoundError: No module named 'win32timezone'" bem no meio da captura, só em
             # tempo de execução (achado testando o instalador de verdade, a CI não roda a captura).
             "--hidden-import", "win32timezone",
+            # Sem isso, o .exe instalado roda sem elevação (o instalador exige admin só
+            # para INSTALAR, não faz o programa já instalado pedir elevação sozinho
+            # depois) -- e o grupo Usuários do Windows só tem permissão de ESCRITA na
+            # pasta de spool (C:\Windows\System32\spool\PRINTERS), nunca de LEITURA
+            # (confirmado com `icacls`: só SYSTEM/Administradores leem o conteúdo dos
+            # arquivos -- é proposital, pra um usuário não ler o trabalho de outro).
+            # Sem elevação, a captura nunca encontra nada, silenciosamente (nenhuma
+            # exceção: é só um "arquivo não encontrado" comum), e o seletor nunca abre.
+            # --uac-admin gera o manifesto do Windows (requireAdministrator): todo
+            # lançamento do .exe (atalho ou início automático) pede UAC antes de rodar
+            # qualquer código nosso. Achado testando de verdade (tarefa #30).
+            "--uac-admin",
             "--paths", SRC, os.path.join(SRC, "printroute", "__main__.py"),
         ]
         print(" ".join(cmd))
