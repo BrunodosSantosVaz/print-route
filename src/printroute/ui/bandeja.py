@@ -3,13 +3,20 @@ configurações -- protótipo validado na issue #3 (artboard "Bandeja"). Usa `py
 mais simples e confiável do que reimplementar `Shell_NotifyIcon` (e o laço de mensagens
 de janela que ele exige) na mão. Sem teste automatizado (interface gráfica/bandeja,
 precisa de um ambiente de desktop real) -- as camadas de lógica que ele usa
-(`estado.py`, `configuracao.py`) são testadas separadamente."""
+(`estado.py`, `configuracao.py`) são testadas separadamente.
+
+Bug real (achado testando o instalador de verdade): "Abrir configurações" chamava
+`abrir_configuracoes()` (Tkinter, `tk.Tk()` + `mainloop()`) direto daqui -- mas este
+menu roda na thread própria do `pystray` (`run_detached()`), não na principal. Tkinter
+não é thread-safe; criar uma segunda janela Tk fora da thread principal deixava a
+bandeja abrindo a janela várias vezes e corrompia o Tcl/Tk do processo a ponto do
+seletor (que abre na thread principal, ver __main__.py) parar de funcionar. Por isso
+"Abrir configurações" agora só *pede* (callback `ao_abrir_configuracoes`, chamado sem
+argumentos): quem de fato abre a janela é sempre a thread principal."""
 import pystray
 from PIL import Image, ImageDraw
 
-from printroute.configuracao import carregar
 from printroute.estado import EstadoApp
-from printroute.ui.configuracoes import abrir_configuracoes
 
 _COR_DE_FUNDO = (15, 108, 189, 255)  # o mesmo azul do protótipo de telas (issue #3)
 
@@ -23,13 +30,17 @@ def _icone_padrao() -> Image.Image:
     return imagem
 
 
-def criar_icone(estado: EstadoApp, ao_sair=lambda: None) -> pystray.Icon:
+def criar_icone(estado: EstadoApp, ao_sair=lambda: None, ao_abrir_configuracoes=lambda: None) -> pystray.Icon:
     """`ao_sair` é chamado (sem argumentos) quando o usuário escolhe "Sair", além de
     `icone.stop()` -- usado pelo `__main__.py` de verdade para também parar o laço de
-    observação da impressora, que roda numa thread separada da bandeja."""
+    observação da impressora, que roda numa thread separada da bandeja.
+
+    `ao_abrir_configuracoes` é chamado (sem argumentos) ao escolher "Abrir
+    configurações": só *sinaliza* o pedido (ex.: numa fila) -- quem abre a janela de
+    verdade é sempre a thread principal (ver módulo, acima)."""
 
     def _abrir_configuracoes(icone, item):
-        abrir_configuracoes(carregar())
+        ao_abrir_configuracoes()
 
     def _alternar_reencaminhamento(icone, item):
         estado.alternar()

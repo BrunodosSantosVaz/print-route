@@ -1,12 +1,17 @@
 """Ponto de entrada do PrintRoute: garante a impressora instalada, mostra o ícone na
 bandeja (em segundo plano, via pystray) e observa a fila da impressora no laço
-principal. O laço de observação fica na thread principal porque é ele quem abre o
-seletor (Tkinter) no modo "perguntar", e Tkinter não é confiável fora da thread
-principal -- ainda não testado numa sessão de desktop de verdade (ver AGENTS.md).
+principal. O laço de observação fica na thread principal porque é ele quem abre
+janelas Tkinter (o seletor, no modo "perguntar", e as configurações), e Tkinter não é
+thread-safe -- criar uma janela fora da thread principal (bug real, achado testando o
+instalador de verdade: a bandeja abria "Configurações" na própria thread do pystray)
+deixava a bandeja abrindo janela repetida e quebrava até o seletor. Por isso a bandeja
+(`ui/bandeja.py`) só *sinaliza* o pedido de abrir configurações -- por uma fila -- e
+quem abre de verdade é sempre este laço.
 
 Com o argumento `--desinstalar` (usado pelo desinstalador do instalador, tarefa #11,
 antes de apagar os arquivos): só remove a impressora e a entrada de início automático,
 sem abrir a bandeja nem o laço de observação."""
+import queue
 import sys
 import threading
 
@@ -15,9 +20,11 @@ from printroute.configuracao import MODO_FIXO, carregar
 from printroute.estado import EstadoApp
 from printroute.spooler import encaminhar, gerenciar
 from printroute.ui import bandeja
+from printroute.ui.configuracoes import abrir_configuracoes
 from printroute.ui.seletor import abrir_seletor
 
 _parar = threading.Event()
+_pedidos_de_ui: queue.Queue = queue.Queue()
 
 
 def _desinstalar() -> None:
@@ -25,9 +32,24 @@ def _desinstalar() -> None:
     inicializacao.desabilitar()
 
 
+def _abrir_configuracoes_pendente() -> bool:
+    """Esvazia a fila e devolve se havia algum pedido -- mais de um clique enquanto o
+    laço está ocupado (ex.: aguardando um trabalho) vira só uma abertura, não uma por
+    clique."""
+    pediu = False
+    while True:
+        try:
+            _pedidos_de_ui.get_nowait()
+        except queue.Empty:
+            return pediu
+        pediu = True
+
+
 def _observar_e_encaminhar(estado: EstadoApp) -> None:
     while not _parar.is_set():
         dados = encaminhar.aguardar_trabalho(gerenciar.NOME_IMPRESSORA, tempo_limite_s=5.0)
+        if _abrir_configuracoes_pendente():
+            abrir_configuracoes(carregar())
         if dados is None or not estado.ativo:
             continue
         config = carregar()
@@ -45,7 +67,9 @@ def main() -> None:
         return
     gerenciar.instalar()
     estado = EstadoApp()
-    icone = bandeja.criar_icone(estado, ao_sair=_parar.set)
+    icone = bandeja.criar_icone(
+        estado, ao_sair=_parar.set, ao_abrir_configuracoes=lambda: _pedidos_de_ui.put_nowait(True)
+    )
     icone.run_detached()
     try:
         _observar_e_encaminhar(estado)
