@@ -11,12 +11,14 @@ quem abre de verdade é sempre este laço.
 Com o argumento `--desinstalar` (usado pelo desinstalador do instalador, tarefa #11,
 antes de apagar os arquivos): só remove a impressora e a entrada de início automático,
 sem abrir a bandeja nem o laço de observação."""
+import datetime
 import queue
 import sys
 import threading
+import traceback
 
 from printroute import inicializacao
-from printroute.configuracao import MODO_FIXO, carregar
+from printroute.configuracao import CAMINHO_PADRAO, MODO_FIXO, carregar
 from printroute.estado import EstadoApp
 from printroute.spooler import encaminhar, gerenciar
 from printroute.ui import bandeja
@@ -25,11 +27,28 @@ from printroute.ui.seletor import abrir_seletor
 
 _parar = threading.Event()
 _pedidos_de_ui: queue.Queue = queue.Queue()
+CAMINHO_LOG_ERROS = CAMINHO_PADRAO.parent / "erro.log"
 
 
 def _desinstalar() -> None:
     gerenciar.desinstalar()
     inicializacao.desabilitar()
+
+
+def _registrar_erro(origem: str) -> None:
+    """Guarda o traceback (mesma pasta da configuração) e deixa o laço seguir rodando.
+
+    Bug real, achado ao vivo: um `config.json` inválido (ou qualquer outro erro
+    inesperado num trabalho) derrubava **o processo inteiro** sem deixar nenhum
+    vestígio -- o `.exe` é `--windowed`, sem console, então uma exceção não aparece em
+    lugar nenhum. Um trabalho ou uma configuração ruim não pode tirar o PrintRoute do
+    ar; só esse trabalho é perdido, registrado aqui para investigar depois."""
+    try:
+        CAMINHO_LOG_ERROS.parent.mkdir(parents=True, exist_ok=True)
+        with open(CAMINHO_LOG_ERROS, "a", encoding="utf-8") as f:
+            f.write(f"{datetime.datetime.now().isoformat()} [{origem}]\n{traceback.format_exc()}\n")
+    except OSError:
+        pass  # sem lugar pra registrar -- mas isso também não pode derrubar o laço
 
 
 def _abrir_configuracoes_pendente() -> bool:
@@ -47,18 +66,21 @@ def _abrir_configuracoes_pendente() -> bool:
 
 def _observar_e_encaminhar(estado: EstadoApp) -> None:
     while not _parar.is_set():
-        dados = encaminhar.aguardar_trabalho(gerenciar.NOME_IMPRESSORA, tempo_limite_s=5.0)
-        if _abrir_configuracoes_pendente():
-            abrir_configuracoes(carregar())
-        if dados is None or not estado.ativo:
-            continue
-        config = carregar()
-        if config.modo == MODO_FIXO:
-            encaminhar.encaminhar_para_configuracao(dados, config)
-        else:
-            escolha = abrir_seletor(config)
-            if escolha is not None:
-                encaminhar.encaminhar_escolha(dados, escolha)
+        try:
+            dados = encaminhar.aguardar_trabalho(gerenciar.NOME_IMPRESSORA, tempo_limite_s=5.0)
+            if _abrir_configuracoes_pendente():
+                abrir_configuracoes(carregar())
+            if dados is None or not estado.ativo:
+                continue
+            config = carregar()
+            if config.modo == MODO_FIXO:
+                encaminhar.encaminhar_para_configuracao(dados, config)
+            else:
+                escolha = abrir_seletor(config)
+                if escolha is not None:
+                    encaminhar.encaminhar_escolha(dados, escolha)
+        except Exception:
+            _registrar_erro("observar_e_encaminhar")
 
 
 def main() -> None:
