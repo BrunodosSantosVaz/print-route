@@ -106,13 +106,22 @@ def _escolher_driver() -> str:
 
 
 def _escolher_porta() -> str:
+    """Bug real (achado testando o instalador num Windows 11 de verdade, não só na CI): o
+    Windows não garante a caixa das portas clássicas -- aqui `Get-PrinterPort` devolve
+    "nul:" (minúsculo), não "NUL:". A comparação exata contra CANDIDATOS_DE_PORTA nunca
+    batia, então a escolha caía para "FILE:" -- que pede um caminho toda vez que alguém
+    imprime (a mesma causa do "Print to File..." clássico do Windows), travando o trabalho
+    antes mesmo dele terminar de ser gravado no spool. Por isso a comparação é
+    case-insensitive, mas o nome DEVOLVIDO é sempre o que o sistema realmente tem (nunca o
+    literal de CANDIDATOS_DE_PORTA), porque Add-Printer precisa do nome exato cadastrado."""
     saida = _powershell("Get-PrinterPort | Select-Object -ExpandProperty Name | ConvertTo-Json -Compress")
     nomes = json.loads(saida) if saida else []
     if isinstance(nomes, str):
         nomes = [nomes]
+    por_nome_normalizado = {nome.upper(): nome for nome in nomes}
     for candidato in CANDIDATOS_DE_PORTA:
-        if candidato in nomes:
-            return candidato
+        if candidato.upper() in por_nome_normalizado:
+            return por_nome_normalizado[candidato.upper()]
     if nomes:
         return nomes[0]
     raise ErroDoPowerShell("Nenhuma porta de impressora disponível no sistema.")
