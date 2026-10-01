@@ -30,10 +30,10 @@ jobs:
     outputs:
       rc_tag: ${{ steps.criar.outputs.rc_tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0   # precisa das tags para numerar a candidata
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Versao e numero da candidata
@@ -69,7 +69,7 @@ jobs:
         run: python packaging/windows/build_installer.py --rc ${{ steps.v.outputs.n }} --saida rc
       - name: Atestar procedencia
         if: steps.v.outputs.pular != 'true'
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: rc/*.exe
       - name: Criar a pre-release (homologacao)
@@ -115,7 +115,7 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           # PAT do dono (admin): empurra na develop (protegida por ruleset) e dispara a CI dela.

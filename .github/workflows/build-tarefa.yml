@@ -19,8 +19,8 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - run: pip install -r requirements-build.txt
@@ -29,7 +29,7 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Compilar
         run: python packaging/windows/build_exe.py --saida tarefa
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: PrintRoute-tarefa-${{ github.sha }}
           path: tarefa/*
