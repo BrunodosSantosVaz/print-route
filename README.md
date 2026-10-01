@@ -9,17 +9,15 @@ pré-configuradas, ou escolhidas na hora, num seletor. Pensado para sistemas que
 [![Licença AGPL-3.0](https://img.shields.io/badge/licen%C3%A7a-AGPL--3.0-blue)](LICENSE)
 ![Plataforma](https://img.shields.io/badge/plataforma-Windows%2010%2F11-lightgrey)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
-![Status](https://img.shields.io/badge/status-em%20desenvolvimento-orange)
+![Status](https://img.shields.io/badge/status-publicado-brightgreen)
 
 ## Estado atual
 
-**Em desenvolvimento, sem release publicada ainda.** A captura, o reencaminhamento (uma ou mais
-impressoras, com cópias, reconstruindo o documento pelo driver de cada uma via Ghostscript), o seletor
-na hora, a configuração, o ícone na bandeja e o instalador (com desinstalador e elevação automática) já
-existem e foram testados numa sessão de desktop real, não só pela CI (veja
-[épico #3](https://github.com/BrunodosSantosVaz/print-route/issues/3)). Até a primeira versão ser
-publicada, não há nada nas [Releases](https://github.com/BrunodosSantosVaz/print-route/releases) para
-baixar.
+**Publicado e funcional.** A captura, o reencaminhamento (uma ou mais impressoras, com cópias,
+reconstruindo o documento pelo driver de cada uma via Ghostscript), o seletor na hora, a configuração, o
+ícone na bandeja e o instalador (com desinstalador e elevação automática) existem e foram testados numa
+sessão de desktop real, não só pela CI (veja [épico #3](https://github.com/BrunodosSantosVaz/print-route/issues/3)).
+Baixe o instalador na página de [Releases](https://github.com/BrunodosSantosVaz/print-route/releases).
 
 ## Para que serve
 
@@ -34,8 +32,17 @@ sem saber que existe um roteamento por trás. O que acontece depois:
 
 ## Como usar
 
-Ainda não há nada para usar: veja [Estado atual](#estado-atual). Esta seção será escrita quando a
-primeira funcionalidade de reencaminhamento existir.
+1. Baixe e rode o instalador (`PrintRoute-Setup-vX.Y.Z-windows-x64.exe`) na página de
+   [Releases](https://github.com/BrunodosSantosVaz/print-route/releases) -- pede elevação (admin): é
+   necessária para registrar a impressora e ler a fila de impressão do Windows.
+2. O PrintRoute aparece como impressora (e na bandeja do sistema). Clique no ícone da bandeja →
+   **Abrir configurações** para escolher o modo: impressora(s) fixas (com cópias) ou perguntar a cada
+   impressão.
+3. Imprima normalmente, escolhendo "PrintRoute" como impressora no programa de origem -- ele
+   reencaminha para o destino configurado.
+
+Para desinstalar: Configurações do Windows → Aplicativos, como qualquer outro programa (remove a
+impressora, a porta e o início automático sozinho).
 
 ## Para desenvolvedores
 
@@ -67,16 +74,17 @@ print-route/
 
 ### Rodando a partir do código-fonte
 
-Requer **Python 3.10 ou superior com Tkinter** (o instalador oficial do Python para Windows já inclui).
-Nenhuma biblioteca externa é necessária para rodar o esqueleto atual.
+Requer **Python 3.10 ou superior com Tkinter** (o instalador oficial do Python para Windows já inclui) e
+**Windows** (usa APIs do spooler de impressão).
 
 ```powershell
 git clone https://github.com/BrunodosSantosVaz/print-route.git
 cd print-route
-python src\printroute\__main__.py
+pip install -e .
+python -m printroute
 ```
 
-Ou instale o projeto para desenvolver (`pip install -e .`) e rode `python -m printroute`.
+As dependências (`pywin32`, `pystray`, `Pillow`) vêm do `pyproject.toml` via `pip install -e .`.
 
 ### Testes
 
@@ -109,9 +117,8 @@ instalador), útil para testar rápido sem empacotar.
 O projeto usa [versionamento semântico](https://semver.org/lang/pt-BR/) (`MAIOR.MENOR.PATCH`) e cada
 versão é registrada no [CHANGELOG](CHANGELOG.md). Antes da 1.0, `MENOR` sobe com funcionalidade nova e
 `PATCH` com correção. **A versão diz o ambiente**, e o executável fica na página de
-[Releases](https://github.com/BrunodosSantosVaz/print-route/releases) (nenhuma publicada ainda). O ciclo
-completo (planejamento, testes, build no CI, aprovação e publicação) está em
-[docs/processo.md](docs/processo.md).
+[Releases](https://github.com/BrunodosSantosVaz/print-route/releases). O ciclo completo (planejamento,
+testes, build no CI, aprovação e publicação) está em [docs/processo.md](docs/processo.md).
 
 ## Segurança
 

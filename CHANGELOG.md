@@ -6,6 +6,16 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ## [Não lançado]
 
+## [0.1.2] - 2026-10-01
+
+### Corrigido
+- Ícone da barra de tarefas ainda saía genérico em algumas máquinas mesmo depois da
+  correção da v0.1.1: `iconphoto` só define o ícone da *classe* da janela -- a barra de
+  tarefas do Windows cacheia o ícone da janela na criação e só reconsulta de novo ao
+  receber `WM_SETICON`, então trocou pra `iconbitmap` (não precisa segurar referência
+  pra evitar coleta de lixo) e manda `WM_SETICON` de verdade via Win32 por cima,
+  forçando a barra de tarefas a reconsultar (#43)
+
 ## [0.1.1] - 2026-10-01
 
 ### Corrigido
