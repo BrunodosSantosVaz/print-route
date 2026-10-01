@@ -7,6 +7,7 @@ import tkinter as tk
 import webbrowser
 from tkinter import ttk
 
+from printroute.ui.icone import aplicar_icone
 from printroute.version import __version__
 
 _URL_DO_REPOSITORIO = "https://github.com/BrunodosSantosVaz/print-route"
@@ -17,6 +18,7 @@ def abrir_sobre() -> None:
     janela = tk.Tk()
     janela.title("Sobre o PrintRoute")
     janela.resizable(False, False)
+    aplicar_icone(janela)
 
     corpo = ttk.Frame(janela, padding=24)
     corpo.pack(fill="both", expand=True)
