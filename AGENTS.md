@@ -94,7 +94,7 @@ A saída do compilador vai para `build-local/`, que é ignorada pelo Git. Apague
 | `src/printroute/selecao.py` | Lógica do seletor de impressora na hora (modo "perguntar"): candidatas, escolha padrão, validação. Sem Tkinter, testável em qualquer sistema. |
 | `src/printroute/estado.py` | Se o reencaminhamento está ativado/pausado (em memória, menu da bandeja). Testável em qualquer sistema. |
 | `src/printroute/inicializacao.py` | Iniciar o PrintRoute com o Windows (Tarefa Agendada elevada, via `schtasks` -- não a chave Run do Registro: um programa que exige elevação não inicia de forma confiável assim, ver o módulo). Testes só rodam no Windows. |
-| `src/printroute/ui/` | Telas (Tkinter/`pystray`): `seletor.py` (usa `selecao.py`), `configuracoes.py` (usa `configuracao.py` e `inicializacao.py`), `bandeja.py` (o ícone e o menu, usa `estado.py`). **Sem teste automatizado** (interface gráfica/bandeja, precisa de display) -- só a lógica por trás é testada. |
+| `src/printroute/ui/` | Telas (Tkinter/`pystray`): `seletor.py` (usa `selecao.py`), `configuracoes.py` (usa `configuracao.py` e `inicializacao.py`), `sobre.py` (versão/licença/link), `bandeja.py` (o ícone e o menu, usa `estado.py`), `icone.py` (o desenho do ícone, reaproveitado pela bandeja em tempo de execução e por `packaging/windows/gerar_icone.py` para o `.ico` do `.exe`). **Sem teste automatizado** (interface gráfica/bandeja, precisa de display) -- só a lógica por trás é testada. |
 | `tests/` | Testes (`unittest`), inclusive dos scripts da esteira. |
 | `packaging/windows/` | Compilador do `.exe`. |
 | `scripts/processo/` | Configuração do GitHub (labels, painéis, automações). |

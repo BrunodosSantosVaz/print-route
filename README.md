@@ -51,7 +51,8 @@ print-route/
 │   ├── estado.py                    Reencaminhamento ativado/pausado (em memória)
 │   ├── inicializacao.py             Iniciar com o Windows (Tarefa Agendada elevada, schtasks)
 │   ├── spooler/                     gerenciar.py (instala/remove a impressora), encaminhar.py (captura + reenvio)
-│   └── ui/                          Telas: seletor.py, configuracoes.py, bandeja.py (ícone + menu)
+│   └── ui/                          Telas: seletor.py, configuracoes.py, sobre.py, bandeja.py (ícone + menu),
+│                                    icone.py (desenho do ícone, reaproveitado no .exe e na bandeja)
 ├── tests/                          Testes automatizados (unittest), inclusive dos scripts da esteira
 ├── packaging/windows/               build_exe.py (compila o .exe) e build_installer.py + instalador.iss
 │                                    (empacotam o instalador Windows, via Inno Setup); saem do CI

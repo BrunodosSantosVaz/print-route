@@ -17,6 +17,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 - Ícone na bandeja do sistema com o painel de configuração (#10)
 - Instalador Windows (empacota o executável, registra a impressora, inicia o painel da bandeja com o Windows) (#11)
 - Desinstalador padrão (Configurações → Aplicativos / Programas e Recursos), removendo porta, impressora, início automático e arquivos (#12)
+- Ícone coerente do app/bandeja e janela "Sobre" com informações do programa (#40)
 
 ### Corrigido
 - PyInstaller não empacota win32timezone: captura de impressão trava com ModuleNotFoundError (#24)
