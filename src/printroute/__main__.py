@@ -1,12 +1,12 @@
 """Ponto de entrada do PrintRoute: garante a impressora instalada, mostra o ícone na
 bandeja (em segundo plano, via pystray) e observa a fila da impressora no laço
 principal. O laço de observação fica na thread principal porque é ele quem abre
-janelas Tkinter (o seletor, no modo "perguntar", e as configurações), e Tkinter não é
-thread-safe -- criar uma janela fora da thread principal (bug real, achado testando o
-instalador de verdade: a bandeja abria "Configurações" na própria thread do pystray)
-deixava a bandeja abrindo janela repetida e quebrava até o seletor. Por isso a bandeja
-(`ui/bandeja.py`) só *sinaliza* o pedido de abrir configurações -- por uma fila -- e
-quem abre de verdade é sempre este laço.
+janelas Tkinter (o seletor, no modo "perguntar", as configurações e o "Sobre"), e
+Tkinter não é thread-safe -- criar uma janela fora da thread principal (bug real,
+achado testando o instalador de verdade: a bandeja abria "Configurações" na própria
+thread do pystray) deixava a bandeja abrindo janela repetida e quebrava até o seletor.
+Por isso a bandeja (`ui/bandeja.py`) só *sinaliza* os pedidos de abrir janela -- por
+uma fila -- e quem abre de verdade é sempre este laço.
 
 Com o argumento `--desinstalar` (usado pelo desinstalador do instalador, tarefa #11,
 antes de apagar os arquivos): só remove a impressora e a entrada de início automático,
@@ -25,6 +25,7 @@ from printroute.spooler import encaminhar, gerenciar
 from printroute.ui import bandeja
 from printroute.ui.configuracoes import abrir_configuracoes
 from printroute.ui.seletor import abrir_seletor
+from printroute.ui.sobre import abrir_sobre
 
 _parar = threading.Event()
 _pedidos_de_ui: queue.Queue = queue.Queue()
@@ -53,25 +54,27 @@ def _registrar_erro(origem: str) -> None:
         pass  # sem lugar pra registrar -- mas isso também não pode derrubar o laço
 
 
-def _abrir_configuracoes_pendente() -> bool:
-    """Esvazia a fila e devolve se havia algum pedido -- mais de um clique enquanto o
-    laço está ocupado (ex.: aguardando um trabalho) vira só uma abertura, não uma por
-    clique."""
-    pediu = False
+def _pedidos_de_ui_pendentes() -> set:
+    """Esvazia a fila e devolve quais pedidos distintos havia (ex.: {"configuracoes"},
+    {"sobre"}) -- mais de um clique no mesmo item enquanto o laço está ocupado (ex.:
+    aguardando um trabalho) vira um só pedido, não um por clique."""
+    pedidos = set()
     while True:
         try:
-            _pedidos_de_ui.get_nowait()
+            pedidos.add(_pedidos_de_ui.get_nowait())
         except queue.Empty:
-            return pediu
-        pediu = True
+            return pedidos
 
 
 def _observar_e_encaminhar(estado: EstadoApp) -> None:
     while not _parar.is_set():
         try:
             dados = encaminhar.aguardar_trabalho(gerenciar.NOME_IMPRESSORA, tempo_limite_s=5.0)
-            if _abrir_configuracoes_pendente():
+            pedidos = _pedidos_de_ui_pendentes()
+            if "configuracoes" in pedidos:
                 abrir_configuracoes(carregar())
+            if "sobre" in pedidos:
+                abrir_sobre()
             if dados is None or not estado.ativo:
                 continue
             config = carregar()
@@ -98,7 +101,10 @@ def main() -> None:
     gerenciar.instalar()
     estado = EstadoApp()
     icone = bandeja.criar_icone(
-        estado, ao_sair=_parar.set, ao_abrir_configuracoes=lambda: _pedidos_de_ui.put_nowait(True)
+        estado,
+        ao_sair=_parar.set,
+        ao_abrir_configuracoes=lambda: _pedidos_de_ui.put_nowait("configuracoes"),
+        ao_abrir_sobre=lambda: _pedidos_de_ui.put_nowait("sobre"),
     )
     icone.run_detached()
     try:

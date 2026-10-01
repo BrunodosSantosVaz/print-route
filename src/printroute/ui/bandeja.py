@@ -12,32 +12,27 @@ não é thread-safe; criar uma segunda janela Tk fora da thread principal deixav
 bandeja abrindo a janela várias vezes e corrompia o Tcl/Tk do processo a ponto do
 seletor (que abre na thread principal, ver __main__.py) parar de funcionar. Por isso
 "Abrir configurações" agora só *pede* (callback `ao_abrir_configuracoes`, chamado sem
-argumentos): quem de fato abre a janela é sempre a thread principal."""
+argumentos): quem de fato abre a janela é sempre a thread principal. "Sobre o
+PrintRoute" (tarefa #40) segue a mesma regra, com `ao_abrir_sobre`: antes chamava
+`icone.notify` (só uma notificação de balão, sem risco de thread porque não é Tkinter),
+mas virou uma janela de verdade (`ui/sobre.py`), então também precisa passar pela
+thread principal."""
 import pystray
-from PIL import Image, ImageDraw
 
 from printroute.estado import EstadoApp
-
-_COR_DE_FUNDO = (15, 108, 189, 255)  # o mesmo azul do protótipo de telas (issue #3)
-
-
-def _icone_padrao() -> Image.Image:
-    tamanho = 64
-    imagem = Image.new("RGBA", (tamanho, tamanho), (0, 0, 0, 0))
-    desenho = ImageDraw.Draw(imagem)
-    desenho.ellipse((4, 4, tamanho - 4, tamanho - 4), fill=_COR_DE_FUNDO)
-    desenho.text((tamanho // 2 - 4, tamanho // 2 - 8), "P", fill="white")
-    return imagem
+from printroute.ui.icone import desenhar_icone
 
 
-def criar_icone(estado: EstadoApp, ao_sair=lambda: None, ao_abrir_configuracoes=lambda: None) -> pystray.Icon:
+def criar_icone(
+    estado: EstadoApp, ao_sair=lambda: None, ao_abrir_configuracoes=lambda: None, ao_abrir_sobre=lambda: None
+) -> pystray.Icon:
     """`ao_sair` é chamado (sem argumentos) quando o usuário escolhe "Sair", além de
     `icone.stop()` -- usado pelo `__main__.py` de verdade para também parar o laço de
     observação da impressora, que roda numa thread separada da bandeja.
 
-    `ao_abrir_configuracoes` é chamado (sem argumentos) ao escolher "Abrir
-    configurações": só *sinaliza* o pedido (ex.: numa fila) -- quem abre a janela de
-    verdade é sempre a thread principal (ver módulo, acima)."""
+    `ao_abrir_configuracoes`/`ao_abrir_sobre` são chamados (sem argumentos) ao escolher
+    o item correspondente: só *sinalizam* o pedido (ex.: numa fila) -- quem abre a
+    janela de verdade é sempre a thread principal (ver módulo, acima)."""
 
     def _abrir_configuracoes(icone, item):
         ao_abrir_configuracoes()
@@ -50,11 +45,7 @@ def criar_icone(estado: EstadoApp, ao_sair=lambda: None, ao_abrir_configuracoes=
         return "Reencaminhamento: Ativado" if estado.ativo else "Reencaminhamento: Pausado"
 
     def _sobre(icone, item):
-        icone.notify(
-            "Impressora virtual que reencaminha para uma ou mais impressoras reais.\n"
-            "github.com/BrunodosSantosVaz/print-route",
-            "Sobre o PrintRoute",
-        )
+        ao_abrir_sobre()
 
     def _sair(icone, item):
         ao_sair()
@@ -68,7 +59,7 @@ def criar_icone(estado: EstadoApp, ao_sair=lambda: None, ao_abrir_configuracoes=
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("Sair", _sair),
     )
-    return pystray.Icon("PrintRoute", icon=_icone_padrao(), title="PrintRoute", menu=menu)
+    return pystray.Icon("PrintRoute", icon=desenhar_icone(64), title="PrintRoute", menu=menu)
 
 
 def executar() -> None:
