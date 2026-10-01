@@ -81,6 +81,12 @@ def _powershell(comando: str) -> str:
         ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", codificado],
         capture_output=True,
         text=True,
+        # Sem isso, uma janela de console do powershell.exe aparece na tela a cada
+        # chamada -- e gerenciar.instalar() roda em TODA abertura do PrintRoute
+        # (--windowed não impede um processo FILHO de linha de comando de abrir a
+        # própria janela). Bug real, achado ao vivo (tarefa #38; mesma causa raiz da
+        # tarefa #36, lá só corrigida no Ghostscript).
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
     saida = resultado.stdout.strip()
     if saida.startswith(_MARCADOR_DE_ERRO):

@@ -49,7 +49,7 @@ print-route/
 │   ├── configuracao.py              Impressoras de destino, cópias e modo (JSON)
 │   ├── selecao.py                   Lógica do seletor de impressora na hora
 │   ├── estado.py                    Reencaminhamento ativado/pausado (em memória)
-│   ├── inicializacao.py             Iniciar com o Windows (Registro, winreg)
+│   ├── inicializacao.py             Iniciar com o Windows (Tarefa Agendada elevada, schtasks)
 │   ├── spooler/                     gerenciar.py (instala/remove a impressora), encaminhar.py (captura + reenvio)
 │   └── ui/                          Telas: seletor.py, configuracoes.py, bandeja.py (ícone + menu)
 ├── tests/                          Testes automatizados (unittest), inclusive dos scripts da esteira
