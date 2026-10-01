@@ -6,6 +6,16 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ## [Não lançado]
 
+## [0.1.1] - 2026-10-01
+
+### Corrigido
+- Instalação trava com `ErroDoPowerShell: A impressora especificada já existe` logo na
+  abertura (condição de corrida em `impressora_existe()`, consulta filtrada do
+  `Get-Printer` não confiável) -- derrubava o app inteiro antes até da bandeja
+  aparecer (#43)
+- Janelas (Configurações/Sobre/Seletor) usavam o ícone padrão do Tcl/Tk na barra de
+  tarefas em vez do ícone do PrintRoute (#43)
+
 ## [0.1.0] - 2026-10-01
 
 ### Adicionado

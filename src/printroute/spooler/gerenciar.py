@@ -95,10 +95,19 @@ def _powershell(comando: str) -> str:
 
 
 def impressora_existe() -> bool:
-    saida = _powershell(
-        f"Get-Printer -Name '{NOME_IMPRESSORA}' -ErrorAction SilentlyContinue | ConvertTo-Json -Compress"
-    )
-    return bool(saida)
+    """Bug real (achado ao vivo em produção, tarefa #43): `Get-Printer -Name X`
+    (consulta filtrada pelo nome) já se mostrou não confiável nesta sessão -- às
+    vezes devolve vazio mesmo com a impressora cadastrada (confirmado comparando com
+    `Get-Printer` sem filtro, que sempre mostrou o resultado certo). Isso fazia
+    `instalar()` chamar `Add-Printer` numa impressora que já existia, e o cmdlet
+    falhava ("A impressora especificada já existe"), derrubando o app inteiro antes
+    até da bandeja aparecer. Por isso lista tudo (sem filtro) e confere no Python --
+    mesmo padrão já usado em `_escolher_porta`/`_escolher_driver`."""
+    saida = _powershell("Get-Printer | Select-Object -ExpandProperty Name | ConvertTo-Json -Compress")
+    nomes = json.loads(saida) if saida else []
+    if isinstance(nomes, str):
+        nomes = [nomes]
+    return NOME_IMPRESSORA in nomes
 
 
 def _escolher_driver() -> str:
@@ -135,11 +144,21 @@ def _escolher_porta() -> str:
 
 def instalar() -> None:
     """Cria a impressora PrintRoute (numa porta já existente no sistema, ver
-    CANDIDATOS_DE_PORTA). Repetir a chamada não duplica nada (idempotente)."""
-    if not impressora_existe():
-        driver = _escolher_driver()
-        porta = _escolher_porta()
+    CANDIDATOS_DE_PORTA). Repetir a chamada não duplica nada (idempotente).
+
+    Também tolera "a impressora já existe" vindo do próprio `Add-Printer` (não só a
+    checagem prévia acima): mesmo com `impressora_existe()` mais confiável agora
+    (tarefa #43), é mais seguro conferir o estado de verdade depois de um erro do que
+    confiar cegamente que a checagem prévia nunca falha contra um sistema externo."""
+    if impressora_existe():
+        return
+    driver = _escolher_driver()
+    porta = _escolher_porta()
+    try:
         _powershell(f"Add-Printer -Name '{NOME_IMPRESSORA}' -DriverName '{driver}' -PortName '{porta}'")
+    except ErroDoPowerShell:
+        if not impressora_existe():
+            raise  # erro de verdade (driver/porta ruim, etc.) -- não some
 
 
 def desinstalar() -> None:
