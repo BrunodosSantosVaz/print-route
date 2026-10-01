@@ -2,4 +2,4 @@
 propriedades do .exe saem daqui. Nunca escreva a versão em outro lugar (é a esteira que a sobe ao
 integrar uma release; veja AGENTS.md)."""
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
