@@ -41,7 +41,7 @@ jobs:
   conferir:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ vars.BRANCH_MAIN || 'main' }}
           fetch-depth: 0
@@ -57,7 +57,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: producao
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ vars.BRANCH_MAIN || 'main' }}
           fetch-depth: 0

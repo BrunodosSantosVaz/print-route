@@ -30,7 +30,7 @@ jobs:
   encerrar:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Encerrar
         run: bash .github/scripts/encerrar-sprint.sh
         env:
