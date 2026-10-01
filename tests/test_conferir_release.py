@@ -79,6 +79,15 @@ class PortaoDeRelease(unittest.TestCase):
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("O codigo mudou depois da candidata", r.stdout)
 
+    def test_instalador_alterado_depois_da_candidata_reprova(self):
+        self.git("tag", "v0.2.0-rc.1")
+        self.escrever("packaging/windows/instalador.iss", "; instalador\n")
+        self.git("add", ".")
+        self.git("commit", "-q", "-m", "mudou o instalador depois da rc")
+        r = self.conferir()
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("O codigo mudou depois da candidata", r.stdout)
+
     def test_mudanca_fora_do_codigo_nao_invalida_a_candidata(self):
         self.git("tag", "v0.2.0-rc.1")
         self.escrever("README.md", "docs\n")

@@ -18,20 +18,22 @@ license = "AGPL-3.0-or-later"
 license-files = ["LICENSE"]
 authors = [{ name = "Bruno dos Santos Vaz" }]
 requires-python = ">=3.10"
-dependencies = []
+dependencies = ["pywin32; sys_platform == 'win32'", "pystray", "Pillow"]
 dynamic = ["version"]
 keywords = ["impressora", "printer", "printer-driver", "print-router", "windows"]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Environment :: Win32 (MS Windows)",
     "Intended Audience :: End Users/Desktop",
-    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
     "Natural Language :: Portuguese (Brazilian)",
     "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: Printing",
 ]
+# Sem classifier de "License :: OSI Approved :: ...": o setuptools (PEP 639) rejeita
+# o classifier de licença junto com o campo `license` acima (SPDX). Achado só agora
+# porque esta é a primeira vez que algo roda `pip install -e .` na CI (tarefa #5).
 
 [project.urls]
 "Código" = "https://github.com/BrunodosSantosVaz/print-route"

@@ -56,12 +56,17 @@ jobs:
           echo "Candidata: v${versao}-rc.${n}"
       - run: pip install -r requirements-build.txt
         if: steps.v.outputs.pular != 'true'
+      - run: pip install -e .
+        if: steps.v.outputs.pular != 'true'
       - name: Testes
         if: steps.v.outputs.pular != 'true'
         run: python -m unittest discover -s tests -v
-      - name: Compilar
+      - name: Instalar o Inno Setup
         if: steps.v.outputs.pular != 'true'
-        run: python packaging/windows/build_exe.py --rc ${{ steps.v.outputs.n }} --saida rc
+        run: choco install innosetup -y --no-progress
+      - name: Compilar e empacotar o instalador
+        if: steps.v.outputs.pular != 'true'
+        run: python packaging/windows/build_installer.py --rc ${{ steps.v.outputs.n }} --saida rc
       - name: Atestar procedencia
         if: steps.v.outputs.pular != 'true'
         uses: actions/attest-build-provenance@v2
@@ -78,7 +83,7 @@ jobs:
           N: ${{ steps.v.outputs.n }}
         run: |
           tag="v${VERSAO}-rc.${N}"
-          exe="PrintRoute-${tag}-windows-x64.exe"
+          exe="PrintRoute-Setup-${tag}-windows-x64.exe"
           (cd rc && sha256sum -c SHA256SUMS.txt)
           {
             echo "## Release candidata (homologação)"

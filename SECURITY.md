@@ -32,14 +32,14 @@ outros processos). Essa é a superfície que mais importa aqui. Interessam relat
 Como o projeto ainda está no início e não tem funcionalidade real de reencaminhamento (veja o
 [README](README.md#estado-atual)), esta seção será revisada conforme a arquitetura for implementada.
 
-## Conferindo o executável
+## Conferindo o instalador
 
 Quando houver uma release publicada:
 
-- Compare o **SHA-256** do `.exe` com o `SHA256SUMS.txt` da release
-  (`Get-FileHash .\PrintRoute-vX.Y.Z-windows-x64.exe -Algorithm SHA256`).
-- Executáveis gerados pelo CI (release candidata `-rc.N` e produção, que é o mesmo binário da candidata
+- Compare o **SHA-256** do instalador com o `SHA256SUMS.txt` da release
+  (`Get-FileHash .\PrintRoute-Setup-vX.Y.Z-windows-x64.exe -Algorithm SHA256`).
+- Instaladores gerados pelo CI (release candidata `-rc.N` e produção, que é o mesmo binário da candidata
   aprovada) têm **atestado de procedência**:
-  `gh attestation verify PrintRoute-vX.Y.Z-windows-x64.exe --repo BrunodosSantosVaz/print-route`.
-- O `.exe` **não é assinado digitalmente**, então o Windows SmartScreen pode avisar. Se preferir,
+  `gh attestation verify PrintRoute-Setup-vX.Y.Z-windows-x64.exe --repo BrunodosSantosVaz/print-route`.
+- O instalador **não é assinado digitalmente**, então o Windows SmartScreen pode avisar. Se preferir,
   compile a partir do código-fonte (veja o [README](README.md)).

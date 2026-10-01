@@ -4,8 +4,9 @@
 # Release nova. Roda quando voce quer que a main receba o que ja esta na develop e concluir essas issues.
 #
 # PORTAO (recusa, sem alterar nada, se):
-#   - src/ ou requirements-build.txt diferem entre a main e a develop (ha mudanca de programa nao
-#     publicada: faca uma release normal, com homologacao);
+#   - src/, o compilador/empacotador (packaging/windows/build_exe.py, build_installer.py,
+#     instalador.iss) ou requirements-build.txt diferem entre a main e a develop (ha
+#     mudanca de programa nao publicada: faca uma release normal, com homologacao);
 #   - a main nao e ancestral da develop (divergiram, ex.: hotfix ainda nao devolvido: rode o back-merge);
 #   - o check `check` da ponta da develop nao esta concluido com sucesso.
 # DEPOIS DO PORTAO:
@@ -31,7 +32,8 @@ echo "Publicar sem executavel${SIMULAR/true/ [SIMULACAO]}"
 git fetch --quiet origin "$MAIN" "$DEVELOP"
 
 # ---- portao 1: nada do programa mudou
-mudou=$(git diff --name-only "origin/$MAIN" "origin/$DEVELOP" -- src requirements-build.txt)
+mudou=$(git diff --name-only "origin/$MAIN" "origin/$DEVELOP" -- src requirements-build.txt \
+  packaging/windows/build_exe.py packaging/windows/build_installer.py packaging/windows/instalador.iss)
 if [ -n "$mudou" ]; then
   falha "Ha mudanca no programa ainda nao publicada ($(echo "$mudou" | tr '\n' ' ')). Isto exige release com homologacao (Integrar release e Publicar em producao)."
 fi

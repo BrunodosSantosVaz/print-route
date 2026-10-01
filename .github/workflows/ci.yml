@@ -23,6 +23,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Instalar o pacote
+        run: pip install -e .
       - name: Sintaxe
         run: python -m compileall -q src scripts tests
       - name: Testes
@@ -41,8 +43,38 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
+      - name: Instalar o pacote
+        run: pip install -e .
       - name: Testes
         run: python -m unittest discover -s tests -v
+
+  # build-release.yml só roda em branches release/**, nunca em PR -- sem isso, um erro no Inno
+  # Setup só apareceria na integração final da release, tarde demais. Nao e gate obrigatorio
+  # (é lento: compila de verdade + Inno Setup), mas roda em todo PR que mexe em packaging/windows/.
+  instalador:
+    name: instalador (Inno Setup)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements-build.txt
+      # Sem isso, o PyInstaller só avisa (não falha) que pywin32/pystray/Pillow não foram
+      # encontrados e gera um .exe faltando módulos -- quebra só em tempo de execução, não
+      # aqui. Achado ao vivo (tarefa #24: ModuleNotFoundError: win32timezone escapou deste
+      # job exatamente por essa razão).
+      - run: pip install -e .
+      - name: Instalar o Inno Setup
+        run: choco install innosetup -y --no-progress
+      - name: Compilar e empacotar o instalador
+        run: python packaging/windows/build_installer.py --saida build-local
+      - name: Conferir que o instalador foi gerado
+        shell: bash
+        run: |
+          ls -la build-local/
+          test -f build-local/SHA256SUMS.txt
+          (cd build-local && sha256sum -c SHA256SUMS.txt)
 
   # Testes dos scripts do processo (bash + git) no Linux, onde eles de fato rodam nas Actions.
   scripts:

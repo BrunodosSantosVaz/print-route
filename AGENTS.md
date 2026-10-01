@@ -10,21 +10,47 @@ Impressora virtual para Windows que reencaminha a impressão recebida para uma o
 (pré-configuradas, ou escolhidas na hora), compilada em um `.exe`. **Windows-only** (usa APIs do spooler
 de impressão do Windows). Licença AGPL-3.0.
 
-## Estado atual: ainda não há funcionalidade real
+## Estado atual: funcional, validado ao vivo
 
-Este repositório tem a esteira completa de desenvolvimento e só um esqueleto do programa (janela Tkinter
-vazia, `src/printroute/__main__.py`). **Não implemente reencaminhamento de impressão sem o dono decidir
-a arquitetura antes** (veja abaixo). Não assuma que uma API ou biblioteca específica já foi escolhida.
+Captura, encaminhamento (fixo e via Ghostscript/XPS), seletor na hora, configuração, bandeja e instalador
+(com desinstalador e elevação) existem e foram testados numa máquina Windows de verdade, não só pela CI —
+vários bugs reais só apareceram nesse teste ao vivo (ver módulos individuais para o histórico: porta em
+caixa diferente, `win32timezone` faltando no `.exe`, thread da UI, BOM no `config.json`, elevação do
+processo, `CreateProcess` do instalador, formato XPS do encaminhamento). Ainda sem release publicada.
 
-## Risco técnico em aberto
+## Arquitetura de captura de impressão (decidida em 29/09/2026)
 
-Uma impressora virtual de verdade no Windows precisa de um **port monitor** registrado no spooler
-(`spoolsv.exe`), que tipicamente é uma **DLL nativa** (C/C++). O `pywin32`/`win32print` administra
-impressoras, portas e trabalhos de impressão via API, mas **não** cria um port monitor do zero em Python
-puro. Produtos parecidos (ex.: RedMon) resolvem isso com um monitor nativo já pronto que encaminha os
-bytes brutos para um processo externo — esse processo externo (a lógica de destino, o seletor etc.) pode
-ser Python. Essa decisão de arquitetura é a primeira pergunta do primeiro épico do projeto: não a tome
-sozinho, discuta com o dono antes de implementar qualquer captura real de impressão.
+Ver a discussão completa na [issue #3](https://github.com/BrunodosSantosVaz/print-route/issues/3),
+seção "Riscos e dependências". Resumo: **sem port monitor nativo, sem RedMon** (o mantenedor do RedMon
+lista suporte a Windows 10 como "won't be implemented"). Em vez disso, o mesmo princípio do
+[PrintManager](https://github.com/jtquisenberry/PrintManager) (AGPL-3.0), mas 100% em Python:
+
+1. **Captura**: observar a pasta de spool do próprio Windows
+   (`C:\Windows\System32\spool\PRINTERS`), esperando um `.SPL` novo parar de crescer — mesma
+   heurística do protótipo da tarefa #4 (`poc/`), aplicada na pasta de verdade em vez de uma porta
+   própria. **Correção (tarefa #6, 29/09/2026)**: a ideia original desta seção era usar
+   `win32print.FindFirstPrinterChangeNotification`, mas o **pywin32 não expõe essa função**
+   (confirmado no código-fonte de `win32print.cpp` no GitHub — só há `OpenPrinter`, `EnumJobs`,
+   `GetJob`, `StartDocPrinter`, `WritePrinter` etc.). Reescrever via `ctypes` chamando a DLL nativa
+   diretamente é possível (assinaturas conferidas na documentação da Microsoft), mas foi descartado
+   por enquanto: observar a pasta já funciona, é mais simples e reaproveita uma técnica já validada.
+   Se isso se mostrar frágil na prática (perder trabalhos concorrentes, por exemplo), reconsidere o
+   `ctypes`.
+2. **Conversão e reenvio** (`encaminhar_bytes`, `spooler/encaminhar.py`): depende do que foi capturado.
+   Drivers v4/XPS do Windows (ex.: "Microsoft Print To PDF", o mais comum quando "Generic / Text Only"
+   não está disponível) spoolam um **pacote XPS** (ZIP, assinatura `PK`), não bytes brutos de
+   dispositivo — descoberto ao vivo (tarefa #34): mandar esse pacote como RAW pra outra impressora
+   corrompe o documento (nem o `System.Windows.Xps` do .NET nem o `MS_XPS_PROC` do Windows conseguem
+   reprocessá-lo fora do contexto original). Por isso `encaminhar_bytes` detecta a assinatura ZIP e, se
+   for XPS, reconstrói na impressora de destino **pelo driver dela própria**, via **Ghostscript**
+   (binário `ghostxps`/`gxpswin64.exe` — não o `gs` principal, que não lê XPS sozinho — baixado e
+   conferido por hash em `build_installer.py`, embutido no instalador em `{app}\ghostxps\`). Só quando o
+   driver de origem é "Generic / Text Only" (texto puro de verdade) é que o caminho antigo (bytes brutos
+   via `win32print.WritePrinter`, RAW) continua sendo usado, corretamente.
+
+O protótipo da tarefa #4 (`poc/`) e as tarefas #5–#34 foram validados pelo dono num Windows de verdade
+(não só pela CI) — quem escreve este código não tem acesso a uma máquina Windows neste ambiente; testes
+ao vivo (via acesso remoto) são o que efetivamente pegou os bugs mais sérios até aqui.
 
 ## `pyproject.toml` é a referência
 
@@ -34,9 +60,14 @@ Consulte **sempre** o `pyproject.toml` antes de assumir qualquer coisa sobre o p
 - **Versão**: o `pyproject.toml` a lê do `src/printroute/version.py`. Nunca escreva a versão em outro
   lugar, e nunca a altere à mão: é a esteira que sobe a versão ao integrar uma release.
 - **Estilo e qualidade**: a configuração do Ruff (`[tool.ruff]`). Rode `uvx ruff check .` no que você mexer.
-- **Dependências**: hoje o programa não tem dependências de execução (`dependencies = []`) — vai
-  precisar de uma quando a arquitetura de captura de impressão for decidida (provavelmente `pywin32`).
-  A de build (o PyInstaller) fica **só** no `requirements-build.txt`. Não a duplique no `pyproject.toml`.
+- **Dependências**: `pywin32` (só Windows, `sys_platform == 'win32'`), usado em
+  `spooler/encaminhar.py` (`win32print`: `OpenPrinter`, `StartDocPrinter`, `WritePrinter`, `EnumJobs`,
+  `EnumPrinters` etc.) e em `ui/configuracoes.py`. `pystray` + `Pillow` (ícone da bandeja,
+  `ui/bandeja.py`) -- cross-platform, sem marcador de SO (mas só usados de fato em código Windows-only).
+  `spooler/gerenciar.py` e `inicializacao.py` continuam só com `subprocess` (PowerShell/`schtasks`),
+  sem pywin32. CI
+  roda `pip install -e .` antes dos testes nos jobs `check`/`compat` (windows-latest). A dependência de
+  build (o PyInstaller) fica **só** no `requirements-build.txt`. Não a duplique no `pyproject.toml`.
 - Se precisar de uma configuração nova de ferramenta, ela vai no `pyproject.toml`, e não em arquivos soltos.
 
 ## Comandos
@@ -46,7 +77,8 @@ Consulte **sempre** o `pyproject.toml` antes de assumir qualquer coisa sobre o p
 | Rodar o programa | `python src/printroute/__main__.py` (ou `python -m printroute` com `pip install -e .`) |
 | Testes (obrigatório antes de todo commit) | `python -m unittest discover -s tests` |
 | Lint (roda na CI; tem que ficar sem avisos) | `uvx ruff check .` |
-| Compilar para Windows | `python packaging/windows/build_exe.py` (num Windows, com `pip install -r requirements-build.txt`) |
+| Compilar só o `.exe` (Windows) | `python packaging/windows/build_exe.py` (com `pip install -r requirements-build.txt`) |
+| Compilar o instalador (Windows) | `python packaging/windows/build_installer.py` (precisa do Inno Setup também; baixa e confere o Ghostscript/`ghostxps` sozinho, num cache em `build-local/`) |
 | Instalar para desenvolver | `pip install -e .` |
 
 A saída do compilador vai para `build-local/`, que é ignorada pelo Git. Apague o que você gerou
@@ -57,6 +89,12 @@ A saída do compilador vai para `build-local/`, que é ignorada pelo Git. Apague
 | Pasta | Conteúdo |
 |---|---|
 | `src/printroute/` | O programa (pacote). Mexer aqui **muda o executável** e exige uma versão nova. |
+| `src/printroute/spooler/` | Interação com o spooler: `gerenciar.py` (instala/remove a impressora, via PowerShell), `encaminhar.py` (captura pela pasta de spool + reenvio -- via Ghostscript/XPS quando o capturado for um pacote XPS, ou bytes brutos via `pywin32` quando for texto puro; ver "Arquitetura de captura de impressão"). Testes só rodam no Windows (`check`/`compat` na CI). |
+| `src/printroute/configuracao.py` | Impressoras de destino, cópias e modo (fixo/perguntar), em JSON. Sem dependência do Windows: testes rodam em qualquer sistema. |
+| `src/printroute/selecao.py` | Lógica do seletor de impressora na hora (modo "perguntar"): candidatas, escolha padrão, validação. Sem Tkinter, testável em qualquer sistema. |
+| `src/printroute/estado.py` | Se o reencaminhamento está ativado/pausado (em memória, menu da bandeja). Testável em qualquer sistema. |
+| `src/printroute/inicializacao.py` | Iniciar o PrintRoute com o Windows (Tarefa Agendada elevada, via `schtasks` -- não a chave Run do Registro: um programa que exige elevação não inicia de forma confiável assim, ver o módulo). Testes só rodam no Windows. |
+| `src/printroute/ui/` | Telas (Tkinter/`pystray`): `seletor.py` (usa `selecao.py`), `configuracoes.py` (usa `configuracao.py` e `inicializacao.py`), `sobre.py` (versão/licença/link), `bandeja.py` (o ícone e o menu, usa `estado.py`), `icone.py` (o desenho do ícone, reaproveitado pela bandeja em tempo de execução e por `packaging/windows/gerar_icone.py` para o `.ico` do `.exe`). **Sem teste automatizado** (interface gráfica/bandeja, precisa de display) -- só a lógica por trás é testada. |
 | `tests/` | Testes (`unittest`), inclusive dos scripts da esteira. |
 | `packaging/windows/` | Compilador do `.exe`. |
 | `scripts/processo/` | Configuração do GitHub (labels, painéis, automações). |
@@ -81,8 +119,9 @@ A saída do compilador vai para `build-local/`, que é ignorada pelo Git. Apague
 
 ## O que a IA nunca faz sem pedido explícito do dono
 
-- Decidir a arquitetura de captura de impressão (veja [Risco técnico em aberto](#risco-técnico-em-aberto))
-  ou implementar qualquer coisa que registre um port monitor, driver ou serviço no Windows.
+- Mudar a arquitetura de captura de impressão já decidida (veja
+  [Arquitetura de captura de impressão](#arquitetura-de-captura-de-impressão-decidida-em-29092026)) sem
+  discutir com o dono, ou registrar um port monitor, driver ou serviço no Windows fora dessa arquitetura.
 - Aprovar PR (label `aprovado`), mover cartão para *Aprovado*/*Reprovado*, aprovar o ambiente `producao`
   ou rodar *Publicar em produção* / *Publicar sem executável*. Uma autorização vale **só** para a sprint
   em que foi dada.
@@ -99,5 +138,6 @@ A saída do compilador vai para `build-local/`, que é ignorada pelo Git. Apague
   no formato `tipo: resumo` (`feat`, `fix`, `docs`, `test`, `refactor`, `build`, `chore`).
 - Código simples: funções curtas, uma responsabilidade por módulo, sem repetição. Prefira ajustar o que
   já existe a criar outro caminho para a mesma coisa.
-- Nada de dependência nova sem necessidade concreta e sem citar por quê no PR (o programa hoje não tem
-  nenhuma dependência de execução).
+- Nada de dependência nova (Python) nem binário novo embutido no instalador sem necessidade concreta e
+  sem citar por quê no PR (ver "Dependências", acima, e o Ghostscript/`ghostxps` na arquitetura de
+  captura -- os dois casos reais até agora, ambos justificados ali).

@@ -31,6 +31,7 @@ from printroute.version import __version__  # noqa: E402
 NOME = "PrintRoute"
 DESCRICAO = "PrintRoute: impressora virtual que reencaminha a impressão para outra(s) impressora(s)"
 COPYRIGHT = "AGPL-3.0-or-later"
+ICONE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icon.ico")
 
 
 def arquivo_versao_windows(pasta):
@@ -71,6 +72,47 @@ def sha256(caminho):
     return h.hexdigest()
 
 
+def compilar(destino_exe):
+    """Roda o PyInstaller e copia o resultado para `destino_exe` (caminho completo,
+    com nome). Reaproveitado por build_installer.py (tarefa #11), que precisa do .exe
+    puro (sem o sufixo -rc.N/versão do nome público) para embutir no instalador."""
+    with tempfile.TemporaryDirectory(prefix="printroute-build-") as tmp:
+        cmd = [
+            sys.executable, "-m", "PyInstaller", "--onefile", "--windowed", "--clean", "--noconfirm",
+            "--name", NOME, "--version-file", arquivo_versao_windows(tmp),
+            "--distpath", os.path.join(tmp, "dist"), "--workpath", os.path.join(tmp, "work"), "--specpath", tmp,
+            # win32timezone: nenhum código do PrintRoute o importa direto -- é usado por baixo dos
+            # panos pelo próprio pywin32 (win32com/pythoncom) quando o spooler formata data/hora de
+            # trabalhos de impressão (EnumJobs/GetJob). O PyInstaller não detecta essa dependência
+            # sozinho (hidden import clássico do pywin32); sem isso o .exe quebra com
+            # "ModuleNotFoundError: No module named 'win32timezone'" bem no meio da captura, só em
+            # tempo de execução (achado testando o instalador de verdade, a CI não roda a captura).
+            "--hidden-import", "win32timezone",
+            # Sem isso, o .exe instalado roda sem elevação (o instalador exige admin só
+            # para INSTALAR, não faz o programa já instalado pedir elevação sozinho
+            # depois) -- e o grupo Usuários do Windows só tem permissão de ESCRITA na
+            # pasta de spool (C:\Windows\System32\spool\PRINTERS), nunca de LEITURA
+            # (confirmado com `icacls`: só SYSTEM/Administradores leem o conteúdo dos
+            # arquivos -- é proposital, pra um usuário não ler o trabalho de outro).
+            # Sem elevação, a captura nunca encontra nada, silenciosamente (nenhuma
+            # exceção: é só um "arquivo não encontrado" comum), e o seletor nunca abre.
+            # --uac-admin gera o manifesto do Windows (requireAdministrator): todo
+            # lançamento do .exe (atalho ou início automático) pede UAC antes de rodar
+            # qualquer código nosso. Achado testando de verdade (tarefa #30).
+            "--uac-admin",
+            # Ícone próprio em vez do genérico do PyInstaller (tarefa #40) -- gerado por
+            # gerar_icone.py a partir do mesmo desenho do ícone da bandeja
+            # (src/printroute/ui/icone.py), pra serem sempre o mesmo visual.
+            "--icon", ICONE,
+            "--paths", SRC, os.path.join(SRC, "printroute", "__main__.py"),
+        ]
+        print(" ".join(cmd))
+        subprocess.run(cmd, check=True, cwd=SRC)
+        gerado = os.path.join(tmp, "dist", NOME + ".exe")
+        os.makedirs(os.path.dirname(destino_exe), exist_ok=True)
+        shutil.copyfile(gerado, destino_exe)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Compila o PrintRoute e guarda o .exe com o hash SHA-256.")
     parser.add_argument("--saida", help="pasta de destino (padrão: build-local/)")
@@ -78,22 +120,12 @@ def main():
     args = parser.parse_args()
     destino_pasta = os.path.abspath(args.saida) if args.saida else os.path.join(RAIZ, "build-local")
     nome_final = nome_do_arquivo(args.rc)
-    with tempfile.TemporaryDirectory(prefix="printroute-build-") as tmp:
-        cmd = [
-            sys.executable, "-m", "PyInstaller", "--onefile", "--windowed", "--clean", "--noconfirm",
-            "--name", NOME, "--version-file", arquivo_versao_windows(tmp),
-            "--distpath", os.path.join(tmp, "dist"), "--workpath", os.path.join(tmp, "work"), "--specpath", tmp,
-            "--paths", SRC, os.path.join(SRC, "printroute", "__main__.py"),
-        ]
-        print(" ".join(cmd))
-        subprocess.run(cmd, check=True, cwd=SRC)
-        gerado = os.path.join(tmp, "dist", NOME + ".exe")
-        os.makedirs(destino_pasta, exist_ok=True)
-        for antigo in os.listdir(destino_pasta):  # nunca deixar .exe/hash de builds anteriores misturados
-            if antigo.endswith(".exe") or antigo == "SHA256SUMS.txt":
-                os.remove(os.path.join(destino_pasta, antigo))
-        final = os.path.join(destino_pasta, nome_final)
-        shutil.copyfile(gerado, final)
+    os.makedirs(destino_pasta, exist_ok=True)
+    for antigo in os.listdir(destino_pasta):  # nunca deixar .exe/hash de builds anteriores misturados
+        if antigo.endswith(".exe") or antigo == "SHA256SUMS.txt":
+            os.remove(os.path.join(destino_pasta, antigo))
+    final = os.path.join(destino_pasta, nome_final)
+    compilar(final)
     with open(os.path.join(destino_pasta, "SHA256SUMS.txt"), "w", encoding="utf-8", newline="\n") as f:
         f.write(f"{sha256(final)}  {nome_final}\n")
     print(f"\nOK: {os.path.relpath(final, RAIZ)}  ({os.path.getsize(final) / 1e6:.1f} MB)")
