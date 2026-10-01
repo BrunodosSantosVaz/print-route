@@ -6,7 +6,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ## [Não lançado]
 
-## [0.1.0] - 2026-09-30
+## [0.1.0] - 2026-10-01
 
 ### Adicionado
 - Registrar o PrintRoute como impressora no Windows (porta + impressora, instalação e remoção) (#5)
@@ -26,4 +26,5 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 - Instalador falha ao abrir/desinstalar o PrintRoute: CreateProcess exige elevação (erro 740) (#32)
 - Encaminhamento corrompe documentos reais: precisa reconstruir via Ghostscript (XPS), não copiar bytes brutos (#34)
 - Console do Ghostscript aparece na tela ao encaminhar (deveria ser invisível) (#36)
+- Início automático não confiável (não aparece na bandeja) e janela de PowerShell visível a cada abertura (#38)
 
