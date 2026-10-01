@@ -36,6 +36,26 @@ class Desinstalar(unittest.TestCase):
 
 
 @unittest.skipUnless(_TEM_WINDOWS, "importa a UI (Tkinter/pystray), só garantida no Windows")
+class AbrirMesmoComErroNaInstalacao(unittest.TestCase):
+    """Bug real, achado ao vivo em produção (tarefa #43): uma falha em
+    gerenciar.instalar() (ex.: a condição de corrida corrigida na própria tarefa #43,
+    mas o princípio vale pra qualquer outra) derrubava o app INTEIRO antes até da
+    bandeja aparecer -- sem vestígio nenhum (--windowed, sem console)."""
+
+    @mock.patch("printroute.__main__._registrar_erro")
+    @mock.patch("printroute.__main__._observar_e_encaminhar")
+    @mock.patch("printroute.__main__.bandeja")
+    @mock.patch("printroute.__main__.gerenciar")
+    def test_erro_ao_instalar_nao_impede_a_bandeja_de_aparecer(
+        self, gerenciar, bandeja, _observar_e_encaminhar, _registrar_erro
+    ):
+        gerenciar.instalar.side_effect = RuntimeError("falhou")
+        printroute_main.main()  # não deve propagar
+        _registrar_erro.assert_called_once_with("instalar")
+        bandeja.criar_icone.assert_called_once()
+
+
+@unittest.skipUnless(_TEM_WINDOWS, "importa a UI (Tkinter/pystray), só garantida no Windows")
 class PedidosDeUi(unittest.TestCase):
     """Bug real (achado testando o instalador de verdade): "Abrir configurações" abria a
     janela Tkinter direto na thread do pystray (não thread-safe), o que deixava a

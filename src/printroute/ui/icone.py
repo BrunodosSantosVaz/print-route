@@ -1,7 +1,8 @@
 """Desenho do ícone do PrintRoute (tarefa #40): um só lugar, reaproveitado pelo ícone
-da bandeja (`bandeja.py`, em tempo de execução) e pelo gerador do `.ico` do `.exe`
+da bandeja (`bandeja.py`, em tempo de execução), pelas janelas Tkinter (`aplicar_icone`,
+abaixo -- tarefa #43) e pelo gerador do `.ico` do `.exe`
 (`packaging/windows/gerar_icone.py`, rodado uma vez, no desenvolvimento) -- garante que
-os dois sejam sempre o mesmo desenho, sem duplicar a lógica.
+todos sejam sempre o mesmo desenho, sem duplicar a lógica.
 
 Desenhado numa resolução bem maior que o pedido e reduzido no final (supersampling):
 sem isso, as bordas arredondadas saem serrilhadas. O desenho em si é propositalmente
@@ -46,3 +47,21 @@ def desenhar_icone(tamanho: int) -> Image.Image:
     )
 
     return imagem.resize((tamanho, tamanho), Image.LANCZOS)
+
+
+def aplicar_icone(janela) -> None:
+    """Aplica o ícone do PrintRoute numa janela Tkinter (título e barra de tarefas
+    enquanto ela estiver aberta) -- sem isso, a janela usa o ícone padrão do Tcl/Tk
+    (bug real, achado ao vivo em produção: "o ícone da barra de tarefa, com ele
+    aberto, ainda é o antigo"). `iconphoto`, não `iconbitmap`: aceita a imagem direto
+    (`desenhar_icone`, sem precisar de um arquivo `.ico` nem empacotar um -- o mesmo
+    raciocínio já usado pra bandeja, tarefa #40).
+
+    A referência à imagem é guardada na própria janela (`janela._icone_printroute`):
+    o Tcl/Tk não segura uma referência Python pra ela, e sem isso o coletor de lixo
+    a apagaria assim que esta função retornasse, fazendo o ícone sumir."""
+    from PIL import ImageTk
+
+    imagem = ImageTk.PhotoImage(desenhar_icone(64))
+    janela.iconphoto(True, imagem)
+    janela._icone_printroute = imagem

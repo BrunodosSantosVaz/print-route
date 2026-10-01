@@ -98,7 +98,17 @@ def main() -> None:
     if len(sys.argv) > 1 and sys.argv[1] == "--desinstalar":
         _desinstalar()
         return
-    gerenciar.instalar()
+    try:
+        gerenciar.instalar()
+    except Exception:
+        # Bug real, achado ao vivo em produção (tarefa #43): uma falha aqui (ex.: uma
+        # condição de corrida externa ao spooler, já corrigida na origem, mas o
+        # princípio vale pra qualquer outra) derrubava o app INTEIRO antes até da
+        # bandeja aparecer -- sem vestígio nenhum (--windowed, sem console). Registra e
+        # segue: o laço principal (já protegido, tarefa #28) continua tentando a cada
+        # trabalho, e o usuário ainda consegue abrir a bandeja/configurações nesse
+        # meio tempo, em vez do processo simplesmente não abrir.
+        _registrar_erro("instalar")
     estado = EstadoApp()
     icone = bandeja.criar_icone(
         estado,

@@ -8,6 +8,7 @@ from tkinter import ttk
 
 from printroute.configuracao import Configuracao
 from printroute.selecao import EscolhaDoUsuario, impressoras_candidatas, validar_escolha
+from printroute.ui.icone import aplicar_icone
 
 
 def abrir_seletor(config: Configuracao, nome_do_trabalho: str = "") -> EscolhaDoUsuario | None:
@@ -19,6 +20,7 @@ def abrir_seletor(config: Configuracao, nome_do_trabalho: str = "") -> EscolhaDo
     janela = tk.Tk()
     janela.title("Novo trabalho de impressão")
     janela.resizable(False, False)
+    aplicar_icone(janela)
 
     corpo = ttk.Frame(janela, padding=20)
     corpo.pack(fill="both", expand=True)
