@@ -6,7 +6,27 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ## [Não lançado]
 
-## [0.1.0] - 2026-09-30
+## [0.1.2] - 2026-10-01
+
+### Corrigido
+- Ícone da barra de tarefas ainda saía genérico em algumas máquinas mesmo depois da
+  correção da v0.1.1: `iconphoto` só define o ícone da *classe* da janela -- a barra de
+  tarefas do Windows cacheia o ícone da janela na criação e só reconsulta de novo ao
+  receber `WM_SETICON`, então trocou pra `iconbitmap` (não precisa segurar referência
+  pra evitar coleta de lixo) e manda `WM_SETICON` de verdade via Win32 por cima,
+  forçando a barra de tarefas a reconsultar (#43)
+
+## [0.1.1] - 2026-10-01
+
+### Corrigido
+- Instalação trava com `ErroDoPowerShell: A impressora especificada já existe` logo na
+  abertura (condição de corrida em `impressora_existe()`, consulta filtrada do
+  `Get-Printer` não confiável) -- derrubava o app inteiro antes até da bandeja
+  aparecer (#43)
+- Janelas (Configurações/Sobre/Seletor) usavam o ícone padrão do Tcl/Tk na barra de
+  tarefas em vez do ícone do PrintRoute (#43)
+
+## [0.1.0] - 2026-10-01
 
 ### Adicionado
 - Registrar o PrintRoute como impressora no Windows (porta + impressora, instalação e remoção) (#5)
@@ -17,6 +37,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 - Ícone na bandeja do sistema com o painel de configuração (#10)
 - Instalador Windows (empacota o executável, registra a impressora, inicia o painel da bandeja com o Windows) (#11)
 - Desinstalador padrão (Configurações → Aplicativos / Programas e Recursos), removendo porta, impressora, início automático e arquivos (#12)
+- Ícone coerente do app/bandeja e janela "Sobre" com informações do programa (#40)
 
 ### Corrigido
 - PyInstaller não empacota win32timezone: captura de impressão trava com ModuleNotFoundError (#24)
@@ -26,4 +47,5 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 - Instalador falha ao abrir/desinstalar o PrintRoute: CreateProcess exige elevação (erro 740) (#32)
 - Encaminhamento corrompe documentos reais: precisa reconstruir via Ghostscript (XPS), não copiar bytes brutos (#34)
 - Console do Ghostscript aparece na tela ao encaminhar (deveria ser invisível) (#36)
+- Início automático não confiável (não aparece na bandeja) e janela de PowerShell visível a cada abertura (#38)
 

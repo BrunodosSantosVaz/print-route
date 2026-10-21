@@ -40,6 +40,7 @@ AppPublisherURL=https://github.com/BrunodosSantosVaz/print-route
 AppSupportURL=https://github.com/BrunodosSantosVaz/print-route/issues
 DefaultDirName={autopf}\PrintRoute
 DefaultGroupName=PrintRoute
+SetupIconFile=icon.ico
 UninstallDisplayIcon={app}\PrintRoute.exe
 UninstallDisplayName=PrintRoute
 OutputDir={#MyOutputDir}

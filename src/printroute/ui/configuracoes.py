@@ -8,6 +8,7 @@ from tkinter import ttk
 
 from printroute import inicializacao
 from printroute.configuracao import MODO_FIXO, MODO_PERGUNTAR, Configuracao, ImpressoraDestino, salvar
+from printroute.ui.icone import aplicar_icone
 
 
 def _impressoras_instaladas() -> list[str]:
@@ -29,6 +30,7 @@ def abrir_configuracoes(config: Configuracao) -> None:
 
     janela = tk.Tk()
     janela.title("Configurações do PrintRoute")
+    aplicar_icone(janela)
 
     corpo = ttk.Frame(janela, padding=20)
     corpo.pack(fill="both", expand=True)

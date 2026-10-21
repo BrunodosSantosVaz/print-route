@@ -1,6 +1,7 @@
-"""Testes de src/printroute/inicializacao.py: grava/remove de verdade uma entrada na
-chave Run do usuário (HKEY_CURRENT_USER, não precisa de administrador). Só faz sentido
-no Windows -- roda nos jobs "check" e "compat" da CI (windows-latest); no resto, pula."""
+"""Testes de src/printroute/inicializacao.py: cria/remove de verdade uma Tarefa
+Agendada (schtasks, tarefa #38 -- não mais a chave Run do Registro, que não inicia de
+forma confiável um programa que precisa de elevação). Só faz sentido no Windows --
+roda nos jobs "check" e "compat" da CI (windows-latest); no resto, pula."""
 import sys
 import unittest
 

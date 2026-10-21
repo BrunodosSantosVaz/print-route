@@ -31,6 +31,7 @@ from printroute.version import __version__  # noqa: E402
 NOME = "PrintRoute"
 DESCRICAO = "PrintRoute: impressora virtual que reencaminha a impressão para outra(s) impressora(s)"
 COPYRIGHT = "AGPL-3.0-or-later"
+ICONE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icon.ico")
 
 
 def arquivo_versao_windows(pasta):
@@ -99,6 +100,10 @@ def compilar(destino_exe):
             # lançamento do .exe (atalho ou início automático) pede UAC antes de rodar
             # qualquer código nosso. Achado testando de verdade (tarefa #30).
             "--uac-admin",
+            # Ícone próprio em vez do genérico do PyInstaller (tarefa #40) -- gerado por
+            # gerar_icone.py a partir do mesmo desenho do ícone da bandeja
+            # (src/printroute/ui/icone.py), pra serem sempre o mesmo visual.
+            "--icon", ICONE,
             "--paths", SRC, os.path.join(SRC, "printroute", "__main__.py"),
         ]
         print(" ".join(cmd))
