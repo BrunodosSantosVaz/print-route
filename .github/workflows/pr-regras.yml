@@ -17,7 +17,7 @@ jobs:
   regras:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Conferir regras
         run: bash .github/scripts/pr-regras.sh
         env:

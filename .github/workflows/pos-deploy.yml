@@ -31,7 +31,7 @@ jobs:
       && github.event.workflow_run.head_branch == (vars.BRANCH_MAIN || 'main') }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ vars.BRANCH_MAIN || 'main' }}
           fetch-depth: 0
