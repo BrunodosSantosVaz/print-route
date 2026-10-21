@@ -1,4 +1,4 @@
 # Dependência só de build (compilar o .exe): não é dependência do programa em si (dependencies = []
 # no pyproject.toml). É o que o Dependabot atualiza e o que o portão da produção trata como "o que é
 # empacotado" (docs/processo.md).
-pyinstaller>=6.10,<7
+pyinstaller>=6.22.3,<7
